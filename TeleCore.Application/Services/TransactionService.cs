@@ -1,12 +1,14 @@
 ﻿using TeleCore.Domain.Entities;
 using TeleCore.Application.Common;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace TeleCore.Application.Services
 {
     public class TransactionService : ITransactionService
     {
-        private readonly IApplicationDbContext _context; // نستخدم الـ Interface هنا
+        private readonly IApplicationDbContext _context;
         private readonly ICommissionService _commissionService;
 
         public TransactionService(IApplicationDbContext context, ICommissionService commissionService)
@@ -15,7 +17,7 @@ namespace TeleCore.Application.Services
             _commissionService = commissionService;
         }
 
-        public async Task<Transaction> ExecuteTransferAsync(int simId, string targetNumber, decimal amount)
+        public async Task<(Transaction transaction, string encryptedPin)> ExecuteTransferAsync(int simId, string targetNumber, decimal amount, string clearPin)
         {
             // 1. حساب العمولة
             var (commission, total) = _commissionService.CalculateCommission(amount);
@@ -25,10 +27,24 @@ namespace TeleCore.Application.Services
             if (sim == null || sim.CurrentBalance < amount)
                 throw new Exception("رصيد الشريحة لا يكفي أو الشريحة غير موجودة");
 
-            // 3. تحديث الأرصدة (خصم من الشريحة)
+            // 3. 🛡️ البحث عن الموبايل المعتمد لفرع هذه الشريحة
+            var mobileNode = await _context.MobileNodes
+                .FirstOrDefaultAsync(n => n.BranchId == sim.BranchId && n.IsAuthorized);
+
+            if (mobileNode == null)
+                throw new Exception("لا يوجد جهاز موبايل معتمد أو متصل لفرع هذه الشريحة لتنفيذ العملية.");
+
+            // 4. 🔒 عملية التشفير (Encryption) باستخدام مفتاح الموبايل
+            using var rsa = new RSACryptoServiceProvider(2048);
+            rsa.FromXmlString(mobileNode.PublicKey);
+            var pinBytes = Encoding.UTF8.GetBytes(clearPin);
+            var encryptedBytes = rsa.Encrypt(pinBytes, false);
+            string encryptedPinBase64 = Convert.ToBase64String(encryptedBytes);
+
+            // 5. تحديث الأرصدة (خصم من الشريحة)
             sim.CurrentBalance -= amount;
 
-            // 4. إنشاء سجل العملية
+            // 6. إنشاء سجل العملية
             var transaction = new Transaction
             {
                 SimCardId = simId,
@@ -37,17 +53,18 @@ namespace TeleCore.Application.Services
                 Commission = commission,
                 TotalAmount = total,
                 Type = "CashOut",
-                Status = "Completed", // في البداية نفترض النجاح، ولاحقاً نربطها برد الموبايل
+                Status = "Pending", // ⏳ خليناها Pending لأن الموبايل لسه هينفذ الـ USSD
                 CreatedAt = DateTime.UtcNow,
-                TransactionReference = Guid.NewGuid().ToString() // المايجريشن طالب الحقل ده ضروري
+                TransactionReference = Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper()
             };
 
             _context.Transactions.Add(transaction);
 
-            // 5. حفظ كل التغييرات في خبطة واحدة للداتابيز
+            // 7. حفظ كل التغييرات في خبطة واحدة للداتابيز
             await _context.SaveChangesAsync();
 
-            return transaction;
+            // إرجاع العملية والـ PIN المشفر عشان الكاشير يبعتهم للموبايل
+            return (transaction, encryptedPinBase64);
         }
     }
 }

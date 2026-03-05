@@ -4,6 +4,7 @@ namespace TeleCore.Application.Services
 {
     public interface ITransactionService
     {
-        Task<Transaction> ExecuteTransferAsync(int simId, string targetNumber, decimal amount);
+        // تم التعديل لإرجاع الـ Transaction بالإضافة إلى الـ PIN المشفر
+        Task<(Transaction transaction, string encryptedPin)> ExecuteTransferAsync(int simId, string targetNumber, decimal amount, string clearPin);
     }
 }

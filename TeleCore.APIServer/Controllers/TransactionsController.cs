@@ -1,86 +1,75 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using TeleCore.APIServer.Hubs;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
+using TeleCore.Application.Common;
+using TeleCore.Infrastructure.Hubs;
 
 namespace TeleCore.APIServer.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
+    [ApiController]
     public class TransactionsController : ControllerBase
     {
-        private readonly IHubContext<TransactionHub> _hubContext;
+        private readonly IApplicationDbContext _context;
+        private readonly IHubContext<NodeHub> _nodeHub;
 
-        public TransactionsController(IHubContext<TransactionHub> hubContext)
+        public TransactionsController(IApplicationDbContext context, IHubContext<NodeHub> nodeHub)
         {
-            _hubContext = hubContext;
+            _context = context;
+            _nodeHub = nodeHub;
         }
 
-        [HttpGet("send-money")]
-        public async Task<IActionResult> SendMoney(int simId, string targetNumber, double amount)
+        public class SecureOrderRequest
         {
-            // 🛑 بننادي الـ Dictionary من الـ TransactionHub مباشرة
-            if (TransactionHub._simConnections.TryGetValue(simId, out var connectionId))
+            public int BranchId { get; set; }
+            public string TargetNumber { get; set; } = string.Empty;
+            public decimal Amount { get; set; }
+            public string ClearPin { get; set; } = string.Empty;
+        }
+
+        [HttpPost("TestSecureTransaction")]
+        public async Task<IActionResult> TestSecureTransaction([FromBody] SecureOrderRequest req)
+        {
+            var mobileNode = await _context.MobileNodes
+                .FirstOrDefaultAsync(n => n.BranchId == req.BranchId && n.IsAuthorized);
+
+            if (mobileNode == null)
+                return BadRequest("لا يوجد جهاز موبايل معتمد ومربوط بهذا الفرع.");
+
+            using var rsa = new RSACryptoServiceProvider(2048);
+            rsa.FromXmlString(mobileNode.PublicKey);
+
+            var pinBytes = Encoding.UTF8.GetBytes(req.ClearPin);
+            var encryptedBytes = rsa.Encrypt(pinBytes, false);
+
+            string encryptedPinBase64 = Convert.ToBase64String(encryptedBytes);
+
+            await _nodeHub.Clients.All.SendAsync("ReceiveSecureOrder", req.TargetNumber, req.Amount, encryptedPinBase64);
+
+            return Ok(new { Message = "تم التشفير", EncryptedPayload = encryptedPinBase64 });
+        }
+
+        // الميثود السحرية لإضافة الشريحة للداتابيز
+        [HttpGet("SeedSim")]
+        public async Task<IActionResult> SeedSim()
+        {
+            var sim = new TeleCore.Domain.Entities.SimCard
             {
-                // إرسال الأمر للموبايل
-                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveOrder", new
-                {
-                    SimId = simId,
-                    TargetNumber = targetNumber,
-                    Amount = amount,
-                    TransactionId = new Random().Next(1000, 9999)
-                });
+                BranchId = 1,
+                PhoneNumber = "01099998888",
+                Provider = "Vodafone",
+                CurrentBalance = 5000,
+                DailyLimit = 60000,
+                MonthlyLimit = 200000,
+                IsActive = true
+            };
 
-                return Ok(new { message = "✅ تم إرسال الأمر للموبايل بنجاح" });
-            }
+            _context.SimCards.Add(sim);
+            await _context.SaveChangesAsync();
 
-            return NotFound(new { message = $"❌ الشريحة {simId} غير متصلة حالياً" });
-        }
-
-
-        [HttpPost("sync")]
-        public async Task<IActionResult> SyncTransaction([FromBody] SyncTransactionRequest request)
-        {
-            // هنا المفروض بتكتب كود الـ Entity Framework لحفظ البيانات في قاعدة البيانات
-            // _context.Transactions.Add(new Transaction { ... });
-            // await _context.SaveChangesAsync();
-
-            Console.WriteLine($"[TeleCore] 💾 تم مزامنة العملية {request.TransactionId} بمبلغ {request.Amount} ج.م بنجاح على السيرفر.");
-
-            return Ok(new { message = "تمت المزامنة بنجاح" });
-        }
-
-        // الـ DTO اللي بيستقبل البيانات من الموبايل
-        public class SyncTransactionRequest
-        {
-            public string Type { get; set; }
-            public string ReceiverNumber { get; set; }
-            public double Amount { get; set; }
-            public string TransactionId { get; set; }
-            public double PostBalance { get; set; }
-            public double ServiceFee { get; set; }
-            public DateTime Timestamp { get; set; }
-        }
-
-        [HttpGet("recent-targets")]
-        public async Task<IActionResult> GetRecentTargetNumbers()
-        {
-            // هنا المفروض تستخدم الـ DbContext بتاعك
-            // مثلاً: var numbers = await _context.Transactions
-            //          .Select(t => t.TargetNumber)
-            //          .Distinct()
-            //          .Take(50)
-            //          .ToListAsync();
-
-            // للتبسيط والتجربة دلوقتي، هنرجع لستة وهمية لحد ما تربطها بالداتا بيز
-            var recentNumbers = new List<object>
-    {
-        new { number = "01000000000", label = "01000000000 (مندوب الشركة)" },
-        new { number = "01111292878", label = "01111292878 (رقم شخصي)" },
-        new { number = "01234567890", label = "01234567890 (عميل دائم)" },
-        new { number = "01555555555", label = "01555555555" }
-    };
-
-            return Ok(recentNumbers);
+            return Ok("تمت إضافة الشريحة بنجاح لداتابيز السيرفر الحقيقية!");
         }
     }
 }

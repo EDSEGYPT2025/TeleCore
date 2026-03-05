@@ -1,9 +1,10 @@
-﻿namespace TeleCore.Mobile;
-
-public partial class AppShell : Shell
+﻿namespace TeleCore.Mobile
 {
-    public AppShell()
+    public partial class AppShell : Shell
     {
-        InitializeComponent();
+        public AppShell()
+        {
+            InitializeComponent();
+        }
     }
 }

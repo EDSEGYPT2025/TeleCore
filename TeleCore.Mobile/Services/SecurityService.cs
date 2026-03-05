@@ -1,4 +1,5 @@
 ﻿using System.Security.Cryptography;
+using Microsoft.Maui.Storage;
 
 namespace TeleCore.Mobile.Services
 {
@@ -8,40 +9,44 @@ namespace TeleCore.Mobile.Services
 
         public async Task<string> GetOrCreatePublicKeyAsync()
         {
-            // 1. التأكد إذا كان هناك مفتاح خاص مخزن مسبقاً
             var existingPrivateKey = await SecureStorage.Default.GetAsync(PrivateKeyAlias);
-
-            using var rsa = new RSACryptoServiceProvider(2048);
+            using var rsa = RSA.Create(2048);
 
             if (string.IsNullOrEmpty(existingPrivateKey))
             {
-                // 2. توليد مفاتيح جديدة لأول مرة
-                // المفتاح الخاص (Private) - يتم تحويله لـ XML وتخزينه مشفراً في النظام
+                // توليد وتخزين المفتاح الخاص بأسلوب XML (متوافق مع كودك)
                 var privateKeyXml = rsa.ToXmlString(true);
                 await SecureStorage.Default.SetAsync(PrivateKeyAlias, privateKeyXml);
             }
             else
             {
-                // 3. تحميل المفتاح الخاص الموجود
                 rsa.FromXmlString(existingPrivateKey);
             }
 
-            // 4. استخراج المفتاح العام (Public Key) لإرساله للسيرفر
-            return rsa.ToXmlString(false);
+            return rsa.ToXmlString(false); // إرجاع المفتاح العام للسيرفر
         }
 
         public async Task<string> DecryptPinAsync(string encryptedPinBase64)
         {
-            var privateKeyXml = await SecureStorage.Default.GetAsync(PrivateKeyAlias);
-            if (string.IsNullOrEmpty(privateKeyXml)) throw new Exception("Security keys not initialized.");
+            try
+            {
+                var privateKeyXml = await SecureStorage.Default.GetAsync(PrivateKeyAlias);
+                if (string.IsNullOrEmpty(privateKeyXml)) throw new Exception("Keys not found.");
 
-            using var rsa = new RSACryptoServiceProvider(2048);
-            rsa.FromXmlString(privateKeyXml);
+                using var rsa = RSA.Create();
+                rsa.FromXmlString(privateKeyXml);
 
-            var encryptedData = Convert.FromBase64String(encryptedPinBase64);
-            var decryptedData = rsa.Decrypt(encryptedData, false);
+                var encryptedData = Convert.FromBase64String(encryptedPinBase64);
+                // ⚠️ ملاحظة: يجب أن يتطابق التشفير في السيرفر مع OAEPSHA256 أو Pkcs1
+                var decryptedData = rsa.Decrypt(encryptedData, RSAEncryptionPadding.Pkcs1);
 
-            return System.Text.Encoding.UTF8.GetString(decryptedData);
+                return System.Text.Encoding.UTF8.GetString(decryptedData);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Security] Decryption Failed: {ex.Message}");
+                return null;
+            }
         }
     }
 }

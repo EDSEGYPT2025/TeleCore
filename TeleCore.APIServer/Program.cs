@@ -65,10 +65,11 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapRazorPages();
 
-// 3️⃣ الـ MapHub يكون في الآخر خالص
-app.MapHub<TransactionHub>("/transactionHub");
+// في ملف Program.cs بالسيرفر - السطر الأخير تقريباً
+// غير transactionHub إلى transferHub ليتطابق مع الموبايل
+app.MapHub<TransactionHub>("/transferHub");
 
-// 👈 إضافة الـ Hub الجديد الخاص بتسجيل الموبايلات
+// إذا كنت لا تستخدم NodeHub حالياً، يمكنك حذفه أو تركه، 
+// لكن الأهم هو السطر أعلاه الخاص بالـ TransactionHub
 app.MapHub<NodeHub>("/nodeHub");
-
 app.Run();

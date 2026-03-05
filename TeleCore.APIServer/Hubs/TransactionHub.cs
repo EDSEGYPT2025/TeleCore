@@ -5,54 +5,71 @@ namespace TeleCore.APIServer.Hubs
 {
     public class TransactionHub : Hub
     {
-        // 🛑 استخدمنا ConcurrentDictionary عشان يكون آمن تماماً مع الـ SignalR
         public static readonly ConcurrentDictionary<int, string> _simConnections = new();
 
-        public async Task RegisterMobile(List<int> simIds)
+        // ✅ إضافة قاموس جديد لحفظ المفتاح العام لكل شريحة (سنحتاجه لاحقاً في التشفير)
+        public static readonly ConcurrentDictionary<int, string> _simPublicKeys = new();
+
+        // 🛑 التعديل الجوهري هنا: إضافة (string publicKey)
+        public async Task RegisterMobile(List<int> simIds, string publicKey)
         {
             foreach (var id in simIds)
             {
-                // نربط الشريحة بالموبايل
                 _simConnections[id] = Context.ConnectionId;
 
-                // 🚀 نبلغ كل لوحات التحكم (الموقع) إن الشريحة دي بقت أونلاين (true)
+                // حفظ المفتاح
+                if (!string.IsNullOrEmpty(publicKey))
+                {
+                    _simPublicKeys[id] = publicKey;
+                }
+
                 await Clients.All.SendAsync("UpdateSimStatus", id, true);
             }
-
             Console.WriteLine($"[TeleCore] 📱 Mobile Registered for SIMs: {string.Join(", ", simIds)}");
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            // مسح الشرايح المرتبطة بالموبايل اللي قفل
             var itemsToRemove = _simConnections.Where(x => x.Value == Context.ConnectionId).ToList();
-
             foreach (var item in itemsToRemove)
             {
                 _simConnections.TryRemove(item.Key, out _);
-
-                // 🚀 نبلغ كل لوحات التحكم إن الشريحة دي بقت أوفلاين (false)
+                _simPublicKeys.TryRemove(item.Key, out _); // تنظيف المفتاح عند خروج الموبايل
                 await Clients.All.SendAsync("UpdateSimStatus", item.Key, false);
             }
-
             await base.OnDisconnectedAsync(exception);
         }
 
-        // 🎯 الدالة دي الموقع هيناديها لما تدوس على زرار "بحث عن الشريحة"
         public async Task PingSim(int simId)
         {
-            // بندور هل الشريحة دي متصلة ليها موبايل دلوقتي؟
             if (_simConnections.TryGetValue(simId, out string? connectionId))
             {
-                // بنبعت أمر الـ Ping للموبايل ده بس
                 await Clients.Client(connectionId).SendAsync("PingDevice");
             }
         }
 
-        // 🎯 دالة إضافية: الموقع بيناديها أول ما يفتح عشان يعرف مين متصل حالياً
         public Task<List<int>> GetOnlineSims()
         {
             return Task.FromResult(_simConnections.Keys.ToList());
+        }
+
+        public async Task SendTransferOrder(int simId, string targetNumber, double amount, string encryptedPin)
+        {
+            if (_simConnections.TryGetValue(simId, out string? connectionId))
+            {
+                await Clients.Client(connectionId).SendAsync("ReceiveSecureOrder", targetNumber, amount, encryptedPin);
+                Console.WriteLine($"[TeleCore] 🚀 Order sent to SIM {simId}: {amount} to {targetNumber}");
+            }
+            else
+            {
+                Console.WriteLine($"[TeleCore] ❌ Failed to send order: SIM {simId} is offline.");
+            }
+        }
+
+        public async Task UpdateTransactionStatus(string resultMessage)
+        {
+            await Clients.All.SendAsync("ReceiveTransactionResult", resultMessage);
+            Console.WriteLine($"[TeleCore] ✅ Result Received: {resultMessage}");
         }
     }
 }

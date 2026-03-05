@@ -3,12 +3,13 @@
     x:Class="TeleCore.Mobile.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:pages="clr-namespace:TeleCore.Mobile.Pages"
-    Shell.FlyoutBehavior="Disabled">
+    xmlns:local="clr-namespace:TeleCore.Mobile"
+    Shell.FlyoutBehavior="Disabled"
+    Title="TeleCore Mobile">
 
     <ShellContent
-        Title="الرئيسية"
-        ContentTemplate="{DataTemplate pages:MainPage}"
+        Title="Home"
+        ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage" />
 
 </Shell>
