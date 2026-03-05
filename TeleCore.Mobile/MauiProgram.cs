@@ -29,6 +29,10 @@ public static class MauiProgram
         // تسجيل خدمة الـ API كـ Singleton لضمان كفاءة الـ Network Requests
         builder.Services.AddSingleton<ApiService>();
 #endif
+        // 👇 السطور الجديدة: تسجيل خدمات الاتصال والتشفير
+        builder.Services.AddSingleton<SecurityService>();
+        builder.Services.AddSingleton<NetworkService>();
+
 
         // 2️⃣ تسجيل الصفحات (Pages)
         // بنسجل الـ AppShell والـ MainPage كـ Singleton لأنهم بيفضلوا عايشين طول مدة استخدام التطبيق

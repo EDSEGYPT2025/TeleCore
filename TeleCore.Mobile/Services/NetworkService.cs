@@ -1,62 +1,79 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
-using TeleCore.Mobile.Services;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Maui.Devices;  // 👈 عشان DeviceInfo
+using Microsoft.Maui.Storage; // 👈 عشان Preferences
+using System.Net.Http;
 
-public class NetworkService
+namespace TeleCore.Mobile.Services // 👈 ده مهم جداً عشان باقي المشروع يشوفه
 {
-    private HubConnection _hubConnection;
-    private readonly SecurityService _securityService;
-
-    public NetworkService()
+    public class NetworkService
     {
-        _securityService = new SecurityService();
+        private HubConnection _hubConnection;
+        private readonly SecurityService _securityService;
 
-        // إعداد الاتصال بالسيرفر
-        // الرابط الكامل للـ Hub على السيرفر الحقيقي
-        string serverUrl = "https://dbshield.runasp.net/nodeHub";
-
-        _hubConnection = new HubConnectionBuilder()
-            .WithUrl(serverUrl)
-            .WithAutomaticReconnect()
-            .Build();
-
-        // استقبال الرد من السيرفر
-        _hubConnection.On<string>("RegistrationResponse", (status) =>
+        public NetworkService()
         {
-            Console.WriteLine($"Server Status: {status}");
-        });
-    }
+            _securityService = new SecurityService();
 
-    public async Task StartAndRegisterAsync()
-    {
-        try
-        {
-            // 1. توليد أو جلب المفتاح العام (كودك أنت)
-            string publicKey = await _securityService.GetOrCreatePublicKeyAsync();
+            // إعداد الاتصال بالسيرفر الحقيقي
+            string serverUrl = "https://dbshield.runasp.net/nodeHub";
 
-            // 2. جلب بيانات الموبايل
-            // جلب معرف فريد للجهاز - سيعمل على أندرويد وويندوز بشكل ثابت
-            string deviceId = Preferences.Default.Get("UniqueDeviceId", string.Empty);
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(serverUrl, options =>
+                {
+                    // 👇 ده "حل سحري" عشان موبايلات أندرويد 9 (زي الـ J7) متعملش بلوك للاتصال 
+                    // بسبب شهادة الأمان بتاعت الاستضافة (SSL Certificate)
+                    options.HttpMessageHandlerFactory = handler => new HttpClientHandler
+                    {
+                        ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+                    };
+                })
+                .WithAutomaticReconnect()
+                .Build();
 
-            if (string.IsNullOrEmpty(deviceId))
+            // استقبال الرد من السيرفر
+            _hubConnection.On<string>("RegistrationResponse", (status) =>
             {
-                // توليد معرف جديد وحفظه في الجهاز للأبد
-                deviceId = Guid.NewGuid().ToString();
-                Preferences.Default.Set("UniqueDeviceId", deviceId);
-            }
-            string model = DeviceInfo.Current.Model;
-
-            // 3. فتح الاتصال بالسيرفر
-            if (_hubConnection.State == HubConnectionState.Disconnected)
-            {
-                await _hubConnection.StartAsync();
-            }
-
-            // 4. إرسال طلب التسجيل للسيرفر
-            await _hubConnection.InvokeAsync("RegisterNode", deviceId, model, publicKey);
+                // غيرنا Console لـ Debug عشان يظهرلك بوضوح في الـ Output بتاع الفيجوال ستوديو
+                System.Diagnostics.Debug.WriteLine($"[TeleCore] Server Status: {status}");
+            });
         }
-        catch (Exception ex)
+
+        public async Task StartAndRegisterAsync()
         {
-            Console.WriteLine($"Error: {ex.Message}");
+            try
+            {
+                // 1. توليد أو جلب المفتاح العام
+                string publicKey = await _securityService.GetOrCreatePublicKeyAsync();
+
+                // 2. جلب معرف فريد للجهاز
+                string deviceId = Preferences.Default.Get("UniqueDeviceId", string.Empty);
+
+                if (string.IsNullOrEmpty(deviceId))
+                {
+                    // توليد معرف جديد وحفظه في الجهاز للأبد
+                    deviceId = Guid.NewGuid().ToString();
+                    Preferences.Default.Set("UniqueDeviceId", deviceId);
+                }
+                string model = DeviceInfo.Current.Model;
+
+                // 3. فتح الاتصال بالسيرفر
+                if (_hubConnection.State == HubConnectionState.Disconnected)
+                {
+                    System.Diagnostics.Debug.WriteLine("[TeleCore] جاري الاتصال بالسيرفر...");
+                    await _hubConnection.StartAsync();
+                    System.Diagnostics.Debug.WriteLine("[TeleCore] تم الاتصال بنجاح!");
+                }
+
+                // 4. إرسال طلب التسجيل للسيرفر
+                await _hubConnection.InvokeAsync("RegisterNode", deviceId, model, publicKey);
+                System.Diagnostics.Debug.WriteLine("[TeleCore] تم إرسال بيانات الموبايل للداتابيز!");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[TeleCore] خطأ في الاتصال: {ex.Message}");
+            }
         }
     }
 }

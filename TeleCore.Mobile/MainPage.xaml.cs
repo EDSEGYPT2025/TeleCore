@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using TeleCore.Mobile.Services;
 using static TeleCore.Mobile.Services.SignalRService;
 
+
 #if ANDROID
 using Android.Content;
 using Android.Provider;
@@ -16,11 +17,14 @@ namespace TeleCore.Mobile.Pages
     public partial class MainPage : ContentPage
     {
         private readonly IUssdService _ussdService;
+        private readonly NetworkService _networkService; // 👈 تعريف الخدمة
 
-        public MainPage(IUssdService ussdService)
+        // 👇 حقن الخدمة هنا عشان الشاشة تعرف تستخدمها
+        public MainPage(IUssdService ussdService, NetworkService networkService)
         {
             InitializeComponent();
             _ussdService = ussdService;
+            _networkService = networkService; // 👈 ربط الخدمة
 
             // 1. استقبال أوامر الـ USSD من السيرفر
             WeakReferenceMessenger.Default.Register<RemoteOrderMessage>(this, (r, m) =>
@@ -30,14 +34,8 @@ namespace TeleCore.Mobile.Pages
 
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    try
-                    {
-                        _ussdService.DialUssd(ussdCode, order.SimId);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[TeleCore] Error: {ex.Message}");
-                    }
+                    try { _ussdService.DialUssd(ussdCode, order.SimId); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[TeleCore] Error: {ex.Message}"); }
                 });
             });
 
@@ -59,18 +57,22 @@ namespace TeleCore.Mobile.Pages
             // فحص الصلاحيات
             await CheckAndRequestAllPermissionsAsync();
 
-            // 🚀 قراءة وعرض أرقام الشرائح المحفوظة في هذا الهاتف
+            // قراءة وعرض أرقام الشرائح المحفوظة في هذا الهاتف
             if (SimIdsEntry != null)
             {
                 SimIdsEntry.Text = Microsoft.Maui.Storage.Preferences.Default.Get("MySimIds", "1,2");
             }
 
-            // تحديث حالة الاتصال فور فتح الشاشة
+            // 👇 🚀 إطلاق شرارة الاتصال بالسيرفر!
+            if (_networkService != null)
+            {
+                await _networkService.StartAndRegisterAsync();
+            }
+
+            // (باقي كود الـ SignalR القديم لو لسه بتستخدمه للواجهة)
             if (SignalRService.Instance != null)
             {
                 UpdateConnectionStatus(SignalRService.Instance.IsConnected);
-
-                // محاولة الاتصال إذا كان مقطوعاً
                 if (!SignalRService.Instance.IsConnected)
                 {
                     await SignalRService.Instance.ConnectAsync();
@@ -97,6 +99,9 @@ namespace TeleCore.Mobile.Pages
             UpdateConnectionStatus(false);
             StatusLabel.Text = "جاري محاولة الاتصال...";
 
+            // إعادة المحاولة من الخدمة الجديدة
+            if (_networkService != null) await _networkService.StartAndRegisterAsync();
+
             if (SignalRService.Instance != null)
             {
                 await SignalRService.Instance.ConnectAsync();
@@ -104,13 +109,9 @@ namespace TeleCore.Mobile.Pages
             }
         }
 
-        // ==========================================
-        // 💾 حفظ إعدادات الشرائح ديناميكياً
-        // ==========================================
         private async void OnSaveSimSettingsClicked(object sender, EventArgs e)
         {
             string simsInput = SimIdsEntry.Text;
-
             if (string.IsNullOrWhiteSpace(simsInput))
             {
                 await DisplayAlert("تنبيه", "برجاء إدخال أرقام الشرائح (مثال: 1,2 أو 3)", "موافق");
@@ -119,26 +120,19 @@ namespace TeleCore.Mobile.Pages
 
             try
             {
-                // إظهار حالة التحميل
                 UpdateConnectionStatus(false);
                 StatusLabel.Text = "جاري تحديث الشرائح...";
 
-                // استدعاء دالة الحفظ وإعادة الاتصال من خدمة SignalR
                 await SignalRService.Instance.SaveSimsAndReconnectAsync(simsInput);
-
-                // تحديث اللمبة بعد المحاولة
                 UpdateConnectionStatus(SignalRService.Instance.IsConnected);
-
                 await DisplayAlert("نجاح", "تم حفظ أرقام الشرائح وإعادة الاتصال بالسيرفر بنجاح.", "موافق");
             }
             catch (Exception ex)
             {
                 await DisplayAlert("خطأ", "تأكد من كتابة الأرقام بشكل صحيح ومفصول بفاصلة (,)", "موافق");
-                System.Diagnostics.Debug.WriteLine($"Save Sims Error: {ex.Message}");
             }
         }
 
-        // --- إدارة الصلاحيات ---
         private async Task CheckAndRequestAllPermissionsAsync()
         {
             try
@@ -174,18 +168,13 @@ namespace TeleCore.Mobile.Pages
         }
 #endif
 
-        // --- أزرار التنقل ---
-        private async void OnExecuteUssdClicked(object sender, EventArgs e)
-        {
-            // كود تنفيذ الـ USSD اليدوي الخاص بك
-        }
+        private async void OnExecuteUssdClicked(object sender, EventArgs e) { }
 
         private async void OnHistoryClicked(object sender, EventArgs e)
         {
             await Navigation.PushAsync(new HistoryPage());
         }
 
-        // --- تفعيل الـ Accessibility يدوياً ---
         private async void OnEnableAccessibilityClicked(object sender, EventArgs e)
         {
             bool goSettings = await DisplayAlert(
@@ -203,10 +192,7 @@ namespace TeleCore.Mobile.Pages
                     intent.AddFlags(ActivityFlags.NewTask);
                     Android.App.Application.Context.StartActivity(intent);
                 }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}");
-                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}"); }
 #endif
             }
         }
