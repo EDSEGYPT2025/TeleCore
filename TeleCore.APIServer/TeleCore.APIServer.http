@@ -1,0 +1,6 @@
+@TeleCore.APIServer_HostAddress = http://localhost:5034
+
+GET {{TeleCore.APIServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

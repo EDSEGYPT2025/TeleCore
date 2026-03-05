@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TeleCore.Mobile.Pages.SplashPage"
+             Shell.NavBarIsVisible="False"
+             NavigationPage.HasNavigationBar="False">
+
+    <Grid>
+
+        <BoxView x:Name="AnimatedGradient"
+                 WidthRequest="2500" 
+                 HeightRequest="2500"
+                 HorizontalOptions="Center" 
+                 VerticalOptions="Center"
+                 AnchorX="0.5" AnchorY="0.5">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#0f172a" Offset="0.0" />
+                    <GradientStop Color="#3b82f6" Offset="0.5" />
+                    <GradientStop Color="#1e293b" Offset="1.0" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
+
+        <BoxView Color="#80000000" />
+
+        <VerticalStackLayout HorizontalOptions="Center" 
+                     VerticalOptions="Center"
+                     Spacing="20">
+
+            <Image Source="dotnet_bot.png" 
+           x:Name="LogoImage"
+           WidthRequest="120" 
+           HeightRequest="120" 
+           Opacity="1" />
+            <Label x:Name="AppNameLabel"
+           Text="TELECORE"
+           TextColor="White"
+           FontSize="32"
+           FontAttributes="Bold"
+           CharacterSpacing="5"
+           HorizontalOptions="Center"
+           Opacity="0" />
+
+            <Label x:Name="LoadingLabel"
+           Text="جاري الاتصال بالسيرفر..."
+           TextColor="#94a3b8"
+           FontSize="14"
+           HorizontalOptions="Center"
+           Opacity="0" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

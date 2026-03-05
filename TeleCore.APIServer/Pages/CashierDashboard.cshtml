@@ -1,0 +1,603 @@
+﻿@page
+@model TeleCore.APIServer.Pages.CashierDashboardModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TeleCore | TACTICAL COMMAND CENTER</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <style>
+        /* ==========================================
+                   🎨 TACTICAL MILITARY THEME
+                   ========================================== */
+        :root {
+            --bg-dark: #050b14;
+            --panel-bg: rgba(9, 20, 35, 0.85);
+            --neon-green: #00ffcc;
+            --neon-red: #ff3333;
+            --neon-blue: #0088ff;
+            --text-main: #e0f2fe;
+            --grid-color: rgba(0, 255, 204, 0.05);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 30px 30px;
+            font-family: 'Cairo', sans-serif;
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        /* خط الـ Terminal للأرقام والبيانات التقنية */
+        .tech-font {
+            font-family: 'Share Tech Mono', monospace;
+            letter-spacing: 1px;
+        }
+
+        /* ------------------------------------------
+                   📡 NAVBAR & HEADER
+                   ------------------------------------------ */
+        .navbar {
+            background: linear-gradient(90deg, #020617, #0f172a);
+            border-bottom: 2px solid var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 136, 255, 0.3);
+        }
+
+        .brand-logo {
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px var(--neon-blue);
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        /* ------------------------------------------
+                   🎛️ PANELS & CARDS
+                   ------------------------------------------ */
+        .tactical-panel {
+            background: var(--panel-bg);
+            border: 1px solid rgba(0, 136, 255, 0.3);
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            position: relative;
+        }
+
+            /* زوايا الإطار العسكري */
+            .tactical-panel::before, .tactical-panel::after {
+                content: '';
+                position: absolute;
+                width: 15px;
+                height: 15px;
+                border: 2px solid var(--neon-blue);
+            }
+
+            .tactical-panel::before {
+                top: -1px;
+                left: -1px;
+                border-right: none;
+                border-bottom: none;
+            }
+
+            .tactical-panel::after {
+                bottom: -1px;
+                right: -1px;
+                border-left: none;
+                border-top: none;
+            }
+
+        .panel-header {
+            border-bottom: 1px solid rgba(0, 136, 255, 0.3);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            color: var(--neon-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ------------------------------------------
+                   📱 MOBILE NODES (SIM CARDS)
+                   ------------------------------------------ */
+        .node-card {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .node-card:hover {
+                border-color: var(--neon-blue);
+                box-shadow: 0 0 15px rgba(0, 136, 255, 0.2);
+            }
+
+            .node-card.selected {
+                border-color: var(--neon-green);
+                background: rgba(0, 255, 204, 0.05);
+                box-shadow: inset 0 0 10px rgba(0, 255, 204, 0.1), 0 0 15px rgba(0, 255, 204, 0.3);
+            }
+
+        /* مؤشرات الحالة (Hardware Specs) */
+        .hw-stat {
+            font-size: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 5px;
+            color: #94a3b8;
+        }
+
+        .progress-bar-tactical {
+            height: 4px;
+            background: #1e293b;
+            flex-grow: 1;
+            margin: 0 10px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--neon-green);
+            box-shadow: 0 0 5px var(--neon-green);
+            transition: width 0.5s;
+        }
+
+        /* اللمبات */
+        .status-indicator {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            background-color: var(--neon-red);
+            box-shadow: 0 0 8px var(--neon-red);
+        }
+
+            .status-indicator.online {
+                background-color: var(--neon-green);
+                box-shadow: 0 0 8px var(--neon-green);
+            }
+
+        /* ------------------------------------------
+                   💻 TERMINAL CONSOLE
+                   ------------------------------------------ */
+        #logConsole {
+            background: #000;
+            color: var(--neon-green);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            height: 250px;
+            overflow-y: auto;
+            border: 1px solid #334155;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .log-line {
+            margin-bottom: 5px;
+            border-bottom: 1px dashed rgba(0,255,204,0.1);
+            padding-bottom: 2px;
+        }
+
+        .log-time {
+            color: #64748b;
+            margin-left: 10px;
+        }
+
+        .log-warning {
+            color: #eab308;
+        }
+
+        .log-error {
+            color: var(--neon-red);
+            text-shadow: 0 0 5px var(--neon-red);
+        }
+
+        /* ------------------------------------------
+                   INPUTS & BUTTONS
+                   ------------------------------------------ */
+        .tactical-input {
+            background: rgba(0,0,0,0.5) !important;
+            border: 1px solid #334155 !important;
+            color: var(--neon-green) !important;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+            .tactical-input:focus {
+                border-color: var(--neon-blue) !important;
+                box-shadow: 0 0 10px rgba(0, 136, 255, 0.3) !important;
+            }
+
+        .btn-tactical {
+            background: transparent;
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: 0.3s;
+        }
+
+            .btn-tactical:hover {
+                background: var(--neon-blue);
+                color: #000;
+                box-shadow: 0 0 15px var(--neon-blue);
+            }
+
+        .btn-execute {
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+        }
+
+            .btn-execute:hover {
+                background: var(--neon-green);
+                color: #000;
+                box-shadow: 0 0 20px var(--neon-green);
+            }
+
+        /* Select2 Dark Mode Override */
+        .select2-container--default .select2-selection--single {
+            background-color: rgba(0,0,0,0.5);
+            border: 1px solid #334155;
+            height: 45px;
+        }
+
+            .select2-container--default .select2-selection--single .select2-selection__rendered {
+                color: var(--neon-green);
+                line-height: 45px;
+                font-family: 'Share Tech Mono', monospace;
+            }
+
+        .select2-dropdown {
+            background-color: #0f172a;
+            border: 1px solid var(--neon-blue);
+            color: #fff;
+        }
+
+        .select2-container--default .select2-results__option--selected {
+            background-color: var(--neon-blue);
+            color: #000;
+        }
+
+        .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+            background-color: rgba(0, 136, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar mb-4 p-2">
+        <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
+            <span class="navbar-brand mb-0 tech-font fs-4 brand-logo">
+                <i class="fas fa-satellite-dish me-2"></i> TELECORE COMMAND UPLINK
+            </span>
+            <div class="tech-font" style="font-size: 0.9rem;">
+                <span id="server-status-dot" class="status-indicator me-2"></span>
+                <span id="server-status-text" class="text-secondary">UPLINK ESTABLISHING...</span>
+                <span class="ms-4 text-muted">SYS_TIME: <span id="clock">00:00:00</span></span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+
+        <div id="setupShiftSection" class="tactical-panel p-4 mb-4">
+            <h5 class="panel-header"><i class="fas fa-network-wired me-2"></i> NODE INITIALIZATION [SHIFT START]</h5>
+            <p class="text-muted small">Select active nodes to integrate into current operational grid.</p>
+
+            <div id="simList" class="row g-3 mt-2">
+            </div>
+
+            <div class="row mt-4 align-items-end border-top border-secondary pt-4 mt-4">
+                <div class="col-md-3">
+                    <label class="form-label tech-font text-muted">INITIAL_FUNDS (EGP):</label>
+                    <input type="number" id="openingCash" class="form-control tactical-input fs-4" value="0" />
+                </div>
+                <div class="col-md-9">
+                    <button class="btn btn-tactical w-100 py-2 fs-5" onclick="startShift()">
+                        <i class="fas fa-power-off me-2"></i> INITIALIZE GRID & OPEN TERMINAL
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="transferSection" class="d-none">
+            <div class="row g-4">
+
+                <div class="col-lg-7">
+                    <div class="tactical-panel p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center panel-header">
+                            <h5 class="mb-0"><i class="fas fa-crosshairs me-2"></i> TARGET ACQUISITION & PAYLOAD</h5>
+                            <button class="btn btn-sm btn-outline-warning tech-font" onclick="pingSelectedSim()">
+                                <i class="fas fa-broadcast-tower"></i> PING NODE
+                            </button>
+                        </div>
+
+                        <div class="row g-4 mt-2">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted tech-font">SOURCE NODE (SIM):</label>
+                                <select id="activeSims" class="form-select tactical-input"></select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-info tech-font">TARGET COORDINATES (NUMBER):</label>
+                                <select id="targetNumber" class="form-control" style="width: 100%;"></select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label text-muted tech-font">PAYLOAD AMOUNT:</label>
+                                <div class="input-group">
+                                    <input type="number" id="amount" class="form-control tactical-input fs-3 text-center" placeholder="0.00" />
+                                    <span class="input-group-text tactical-input text-info border-start-0">EGP</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="sendBtn" class="btn btn-tactical btn-execute btn-lg mt-5 w-100 py-3" onclick="sendToMobile()">
+                            <i class="fas fa-bolt fa-lg me-2"></i> EXECUTE TRANSFER PROTOCOL
+                        </button>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="tactical-panel p-3 h-100 d-flex flex-column">
+                        <h6 class="panel-header mb-3"><i class="fas fa-terminal me-2"></i> SYSTEM LOGS & TELEMETRY</h6>
+                        <div id="logConsole" class="flex-grow-1">
+                            <div class="log-line"><span class="log-time">[SYS]</span> System ready. Awaiting uplink...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+    <script>
+        let currentShiftId = 0;
+
+        // تحديث الساعة فوق
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-US', { hour12: false });
+        }, 1000);
+
+        // ==========================================
+        // 📡 SIGNALR UPLINK
+        // ==========================================
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/TransactionHub")
+            .withAutomaticReconnect()
+            .build();
+
+        connection.start().then(function () {
+            document.getElementById("server-status-dot").classList.add("online");
+            document.getElementById("server-status-text").innerText = "UPLINK SECURE";
+            document.getElementById("server-status-text").classList.replace("text-secondary", "text-info");
+            writeLog("Connection to main server established.", "text-info");
+
+            connection.invoke("GetOnlineSims").then(function(onlineSims) {
+                onlineSims.forEach(simId => updateNodeUI(simId, true));
+            });
+        }).catch(function (err) {
+            writeLog("Uplink failed. Retrying...", "log-error");
+        });
+
+        // الاستماع لحالة الشريحة
+        connection.on("UpdateSimStatus", function (simId, isOnline) {
+            updateNodeUI(simId, isOnline);
+            if(isOnline) writeLog(`Node [SIM_${simId}] is online and integrated.`, "text-success");
+            else writeLog(`WARN: Connection lost to Node [SIM_${simId}].`, "log-warning");
+        });
+
+        // 🚀 جديد: استقبال بيانات الهاردوير من الموبايل (البطارية والشبكة)
+        // ملاحظة: دي هتحتاج دالة في الموبايل تبعت البيانات دي للسيرفر
+        connection.on("UpdateDeviceTelemetry", function (simId, batteryLevel, signalStrength) {
+            const batBar = document.getElementById(`bat-fill-${simId}`);
+            const batText = document.getElementById(`bat-txt-${simId}`);
+            if(batBar && batText) {
+                batBar.style.width = `${batteryLevel}%`;
+                batText.innerText = `${batteryLevel}%`;
+                if(batteryLevel <= 20) batBar.style.backgroundColor = 'var(--neon-red)';
+                else batBar.style.backgroundColor = 'var(--neon-green)';
+            }
+        });
+
+        function updateNodeUI(simId, isOnline) {
+            const dot = document.getElementById(`sim-dot-${simId}`);
+            const statusText = document.getElementById(`sim-status-${simId}`);
+            const card = document.getElementById(`node-card-${simId}`);
+
+            if (dot && statusText) {
+                if (isOnline) {
+                    dot.classList.add("online");
+                    statusText.innerText = "ONLINE";
+                    statusText.style.color = "var(--neon-green)";
+                    if(card) card.style.borderColor = "rgba(0, 255, 204, 0.4)";
+                } else {
+                    dot.classList.remove("online");
+                    statusText.innerText = "OFFLINE";
+                    statusText.style.color = "var(--neon-red)";
+                    if(card) card.style.borderColor = "#334155";
+                }
+            }
+        }
+
+        // ==========================================
+        // 📱 NODE RENDERER (UI)
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', async () => {
+             // Mocking fetching sims for now. Replace with actual API.
+             try {
+                 const res = await fetch('/api/Shift/available-sims/1');
+                 const sims = await res.json();
+                 renderNodes(sims);
+             } catch(e) {
+                 // Fallback for visual testing if API fails
+                 renderNodes([
+                     {id: 1, provider: 'Vodafone Cash', phoneNumber: '01012345678'},
+                     {id: 2, provider: 'InstaPay Node', phoneNumber: '01198765432'}
+                 ]);
+             }
+        });
+
+        function renderNodes(sims) {
+            const container = document.getElementById('simList');
+            container.innerHTML = sims.map(sim => `
+                <div class="col-md-6 col-lg-4">
+                    <div id="node-card-${sim.id}" class="node-card" onclick="selectSim(this)">
+                        <input type="checkbox" class="d-none" name="sims" value="${sim.id}" data-name="${sim.provider}">
+
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="tech-font text-info"><i class="fas fa-microchip me-2"></i>NODE_ID: ${sim.id}</div>
+                            <div class="status-indicator" id="sim-dot-${sim.id}"></div>
+                        </div>
+
+                        <div class="fs-5 fw-bold text-white">${sim.provider}</div>
+                        <div class="text-muted tech-font mb-3">${sim.phoneNumber}</div>
+
+                        <div class="hw-stat">
+                            <span>PWR</span>
+                            <div class="progress-bar-tactical"><div id="bat-fill-${sim.id}" class="progress-fill" style="width: 100%;"></div></div>
+                            <span id="bat-txt-${sim.id}" class="tech-font">100%</span>
+                        </div>
+
+                        <div class="hw-stat">
+                            <span>SIG</span>
+                            <div class="progress-bar-tactical"><div class="progress-fill" style="width: 85%; background: var(--neon-blue);"></div></div>
+                            <span class="tech-font">85%</span>
+                        </div>
+
+                        <div class="mt-3 pt-2 border-top" style="border-color: rgba(255,255,255,0.1) !important;">
+                            <span id="sim-status-${sim.id}" class="tech-font text-danger fw-bold small">OFFLINE</span>
+                            <button class="btn btn-sm btn-outline-secondary float-end px-2 py-0" style="font-size:10px" onclick="pingDevice(event, ${sim.id})">PING</button>
+                        </div>
+                    </div>
+                </div>`).join('');
+        }
+
+        function selectSim(el) {
+            el.classList.toggle('selected');
+            const cb = el.querySelector('input');
+            cb.checked = !cb.checked;
+        }
+
+        function pingDevice(event, simId) {
+            event.stopPropagation();
+            if (connection.state === signalR.HubConnectionState.Connected) {
+                writeLog(`Sending ping signal to Node ${simId}...`, "text-warning");
+                connection.invoke("PingSim", parseInt(simId)).catch(err => writeLog(`Ping failed: Node offline.`, "log-error"));
+            }
+        }
+
+        function pingSelectedSim() {
+            const selectedSimId = document.getElementById('activeSims').value;
+            if(selectedSimId) pingDevice({ stopPropagation: () => {} }, selectedSimId);
+        }
+
+        // ==========================================
+        // 🚀 CORE OPERATIONS
+        // ==========================================
+        async function loadRecentTargets() {
+            try {
+                const res = await fetch('/api/transactions/recent-targets');
+                const data = await res.json();
+                const select = $('#targetNumber');
+                select.empty();
+                select.append('<option value="">ENTER COORDINATES...</option>');
+
+                data.forEach(item => {
+                    select.append(new Option(item.label, item.number, false, false));
+                });
+                select.select2({ tags: true, placeholder: "ENTER COORDINATES...", allowClear: true, dir: "rtl" });
+            } catch (error) {
+                $('#targetNumber').select2({ tags: true, placeholder: "ENTER COORDINATES...", dir: "rtl" });
+            }
+        }
+
+        async function startShift() {
+            const selected = Array.from(document.querySelectorAll('input[name="sims"]:checked'));
+            if (selected.length === 0) return alert("MUST SELECT AT LEAST ONE NODE!");
+
+            writeLog("Initializing grid and authenticating...", "text-info");
+
+            try {
+                const res = await fetch('/api/Shift/open-shift', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        cashierId: 1, drawerId: 1,
+                        openingCash: parseFloat(document.getElementById('openingCash').value),
+                        selectedSimIds: selected.map(s => parseInt(s.value))
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    currentShiftId = data.shiftId;
+
+                    document.getElementById('setupShiftSection').classList.add('d-none');
+                    document.getElementById('transferSection').classList.remove('d-none');
+                    document.getElementById('transferSection').classList.add('fade-in');
+
+                    const select = document.getElementById('activeSims');
+                    selected.forEach((s) => {
+                        select.innerHTML += `<option value="${s.value}">[NODE ${s.value}] ${s.dataset.name}</option>`;
+                    });
+
+                    await loadRecentTargets();
+                    writeLog("Grid initialized. Operational mode active.", "text-success");
+                }
+            } catch (e) {
+                writeLog("Initialization failed. DB Error.", "log-error");
+            }
+        }
+
+        async function sendToMobile() {
+            const simId = document.getElementById('activeSims').value;
+            const target = document.getElementById('targetNumber').value;
+            const amt = document.getElementById('amount').value;
+
+            if(!target || !amt) return alert("INVALID PARAMETERS: TARGET AND AMOUNT REQUIRED.");
+
+            writeLog(`Deploying ${amt} EGP payload to [${target}] via Node ${simId}...`, "text-warning");
+
+            try {
+                const res = await fetch(`/api/transactions/send-money?simId=${simId}&targetNumber=${target}&amount=${amt}`);
+                if (res.ok) {
+                    writeLog(`Payload delivered successfully to Node ${simId}.`, "text-success");
+                    $('#amount').val('');
+                    $('#targetNumber').val(null).trigger('change');
+                } else {
+                    writeLog(`Transmission failed: Node may be unresponsive.`, "log-error");
+                }
+            } catch (e) {
+                writeLog(`CRITICAL: Network uplink lost during transmission.`, "log-error");
+            }
+        }
+
+        // ==========================================
+        // 💻 TERMINAL LOGGER
+        // ==========================================
+        function writeLog(message, cssClass = "") {
+            const log = document.getElementById('logConsole');
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            log.innerHTML += `<div class="log-line ${cssClass}"><span class="log-time">[${time}]</span> <span style="margin-left:8px;">> ${message}</span></div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+    </script>
+</body>
+</html>
