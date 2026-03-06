@@ -73,45 +73,32 @@ namespace TeleCore.Mobile.Services
 
             try
             {
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
-                    if (Application.Current?.MainPage != null)
-                    {
-                        await Application.Current.MainPage.DisplayAlert(
-                            "📥 طلب جديد",
-                            $"استلمت طلب تحويل للرقم: {targetNumber}\nبمبلغ: {amountObj}",
-                            "تنفيذ");
-                    }
-                });
-
+                // 1. التأكد من الصلاحية صمتاً (بدون رسائل مزعجة)
                 var status = await Permissions.CheckStatusAsync<Permissions.Phone>();
                 if (status != PermissionStatus.Granted)
                 {
-                    status = await Permissions.RequestAsync<Permissions.Phone>();
-                    if (status != PermissionStatus.Granted) return;
-                }
-
-                // 🔐 التعديل هنا: فك التشفير الحقيقي للـ PIN
-                string decryptedPin = await _securityService.DecryptPinAsync(encryptedPin);
-
-                // حماية: لو فك التشفير فشل أو البين كان فاضي، نوقف العملية
-                if (string.IsNullOrEmpty(decryptedPin) || decryptedPin.Length > 8)
-                {
-                    Debug.WriteLine("[TeleCore] ❌ فشل فك تشفير الـ PIN أو التنسيق خاطئ!");
+                    Debug.WriteLine("[TeleCore] ❌ لا توجد صلاحية للاتصال!");
                     return;
                 }
 
-                Debug.WriteLine($"[TeleCore] ✅ تم فك تشفير الـ PIN بنجاح");
+                // 2. فك التشفير الحقيقي
+                string decryptedPin = await _securityService.DecryptPinAsync(encryptedPin);
+
+                if (string.IsNullOrEmpty(decryptedPin))
+                {
+                    Debug.WriteLine("[TeleCore] ❌ فشل فك تشفير الـ PIN!");
+                    return;
+                }
 
 #if ANDROID
-                // إرسال البين الفعلي لخدمة الوصول
+                // 3. إرسال البين الفعلي لخدمة الـ Accessibility
                 TeleCore.Mobile.Platforms.Android.UssdAccessibilityService.CurrentDecryptedPin = decryptedPin;
 
-                // كود الاتصال
-                string ussdCode = $"*9*7*{targetNumber}*{amountObj}%23";
+                // 4. كود الاتصال (مع تنظيف الأرقام من أي مسافات)
+                string cleanNum = targetNumber.Trim().Replace(" ", "");
+                string ussdCode = $"*9*7*{cleanNum}*{amountObj}%23";
 
-                await Task.Delay(500);
-
+                // 5. فتح لوحة الاتصال صمتاً
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     try

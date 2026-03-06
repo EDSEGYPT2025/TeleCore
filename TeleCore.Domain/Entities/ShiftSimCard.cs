@@ -6,7 +6,11 @@
         public int ShiftId { get; set; }
         public int SimCardId { get; set; }
 
-        public decimal OpeningBalance { get; set; } // رصيد الشريحة أول ما استلمها
-        public decimal? ClosingBalance { get; set; } // رصيدها لما قفل الوردية
+        public decimal OpeningBalance { get; set; }
+        public decimal? ClosingBalance { get; set; }
+
+        // ✅ إضافة العلاقات لسهولة استخراج التقارير
+        public Shift Shift { get; set; }
+        public SimCard SimCard { get; set; }
     }
 }

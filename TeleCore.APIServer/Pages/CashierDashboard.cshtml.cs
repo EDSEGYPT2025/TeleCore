@@ -5,14 +5,14 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using TeleCore.Application.Common;
 using TeleCore.Application.Services;
-using TeleCore.APIServer.Hubs; // تأكد من استيراد مسار الـ Hub الصحيح
+using TeleCore.APIServer.Hubs;
 
 namespace TeleCore.APIServer.Pages
 {
     public class CashierDashboardModel : PageModel
     {
         private readonly ITransactionService _transactionService;
-        private readonly IHubContext<TransactionHub> _hubContext; // تم التغيير لـ TransactionHub
+        private readonly IHubContext<TransactionHub> _hubContext;
         private readonly IApplicationDbContext _context;
 
         public CashierDashboardModel(
@@ -47,18 +47,34 @@ namespace TeleCore.APIServer.Pages
 
             try
             {
-                // 1. تنفيذ العملية في الداتابيز وتشفير الـ PIN
+                // 1. تنفيذ العملية في الداتابيز
                 var result = await _transactionService.ExecuteTransferAsync(SelectedSimId, TargetNumber, Amount, ClearPin);
 
                 // 2. البحث عن الـ ConnectionId الخاص بالموبايل الذي سجل برقم هذه الشريحة
                 if (TransactionHub._simConnections.TryGetValue(SelectedSimId, out string? connectionId))
                 {
-                    // 3. إرسال الطلب للموبايل المحدد فقط (Targeted Sending)
-                    // للتجربة فقط: أرسل البين الخام
+                    // 🔐 التشفير الحقيقي للـ PIN قبل الإرسال
+                    string finalEncryptedPin = ClearPin;
+                    if (TransactionHub._simPublicKeys.TryGetValue(SelectedSimId, out string? publicKey))
+                    {
+                        try
+                        {
+                            using var rsa = System.Security.Cryptography.RSA.Create();
+                            rsa.FromXmlString(publicKey); // استخدام مفتاح الموبايل الذي استلمناه
+                            var pinBytes = System.Text.Encoding.UTF8.GetBytes(ClearPin);
+                            // تشفير الـ PIN
+                            var encryptedBytes = rsa.Encrypt(pinBytes, System.Security.Cryptography.RSAEncryptionPadding.Pkcs1);
+                            finalEncryptedPin = Convert.ToBase64String(encryptedBytes);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[TeleCore] Encryption Error: {ex.Message}");
+                        }
+                    }
+
+                    // 3. إرسال الطلب للموبايل المحدد بالرقم المشفر
                     await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSecureOrder",
-                        result.transaction.TargetNumber,
-                        result.transaction.Amount,
-                        ClearPin); // أرسل ClearPin بدلاً من result.encryptedPin
+                        TargetNumber, Amount, finalEncryptedPin);
 
                     StatusMessage = $"🚀 تم الإرسال للموبايل بنجاح! رقم العملية: {result.transaction.TransactionReference}";
                     IsSuccess = true;

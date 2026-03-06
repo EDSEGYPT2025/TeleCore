@@ -3,6 +3,8 @@ using Android.App;
 using Android.OS;
 using Android.Views.Accessibility;
 using CommunityToolkit.Mvvm.Messaging;
+using System;
+using System.Threading.Tasks;
 
 namespace TeleCore.Mobile.Platforms.Android
 {
@@ -15,14 +17,29 @@ namespace TeleCore.Mobile.Platforms.Android
         private bool _isTaskDone = false;
         private const string MyAppPackage = "com.telecore.secure.v3";
 
+        // 🛑 إضافة متغيرات الذاكرة لمنع اللوب (Loop)
+        private string _lastProcessedMessage = "";
+        private DateTime _lastProcessedTime = DateTime.MinValue;
+
         public override void OnAccessibilityEvent(AccessibilityEvent e)
         {
             if (e == null) return;
 
-            // 🛑 1. تجاهل تام لأي حدث داخل تطبيق TeleCore نفسه
-            if (e.PackageName?.ToString() == MyAppPackage) return;
+            string packageName = e.PackageName?.ToString() ?? "";
 
-            // ✅ 2. الاستجابة فقط عند تغير الشباك (ظهور نافذة USSD)
+            // 1. تجاهل تام لأي حدث داخل تطبيق TeleCore نفسه
+            if (packageName == MyAppPackage) return;
+
+            // 🛡️ 2. فلتر النطاق: منع قراءة شريط الإشعارات وتطبيقات الرسائل
+            if (packageName.Contains("android.mms") ||
+                packageName.Contains("google.android.apps.messaging") ||
+                packageName.Contains("com.samsung.android.messaging") ||
+                packageName.Contains("com.android.systemui"))
+            {
+                return;
+            }
+
+            // 3. الاستجابة فقط عند تغير الشباك (ظهور نافذة USSD)
             if (e.EventType != EventTypes.WindowStateChanged && e.EventType != EventTypes.WindowContentChanged) return;
 
             AccessibilityNodeInfo rootNode = RootInActiveWindow;
@@ -30,21 +47,31 @@ namespace TeleCore.Mobile.Platforms.Android
 
             string screenContent = FlattenNodeText(rootNode);
 
-            // 3. معالجة شاشات النهاية (إغلاق تلقائي)
+            // 4. معالجة شاشات النهاية (إغلاق تلقائي وإرسال للسيرفر)
             if (screenContent.Contains("تم") || screenContent.Contains("نجاح") || screenContent.Contains("رصيد"))
             {
-                _isTaskDone = false;
-                WeakReferenceMessenger.Default.Send(screenContent);
-                CurrentDecryptedPin = ""; // تصفير للأمان
+                // ✅ فلتر التكرار: لا ترسل نفس الرسالة إلا إذا مر 10 ثوانٍ على الأقل
+                if (screenContent != _lastProcessedMessage || (DateTime.Now - _lastProcessedTime).TotalSeconds > 10)
+                {
+                    _lastProcessedMessage = screenContent;
+                    _lastProcessedTime = DateTime.Now;
 
-                var okBtn = FindButton(rootNode, "موافق") ?? FindButton(rootNode, "OK");
-                okBtn?.PerformAction(global::Android.Views.Accessibility.Action.Click);
+                    _isTaskDone = false;
+                    CurrentDecryptedPin = ""; // تصفير للأمان
+
+                    // إرسال الرسالة للسيرفر مرة واحدة فقط
+                    WeakReferenceMessenger.Default.Send(screenContent);
+
+                    // إغلاق النافذة
+                    var okBtn = FindButton(rootNode, "موافق") ?? FindButton(rootNode, "OK") ?? FindButton(rootNode, "Cancel");
+                    okBtn?.PerformAction(global::Android.Views.Accessibility.Action.Click);
+                }
                 return;
             }
 
             if (_isTaskDone || string.IsNullOrEmpty(CurrentDecryptedPin)) return;
 
-            // 4. كشف حقل الـ PIN في نافذة النظام فقط
+            // 5. كشف حقل الـ PIN في نافذة النظام فقط
             AccessibilityNodeInfo inputField = FindInputField(rootNode);
             if (inputField != null && (screenContent.Contains("الرقم السري") || screenContent.Contains("PIN")))
             {
@@ -92,7 +119,7 @@ namespace TeleCore.Mobile.Platforms.Android
             if (node == null) return "";
             string text = node.Text?.ToString() ?? "";
             for (int i = 0; i < node.ChildCount; i++) text += " " + FlattenNodeText(node.GetChild(i));
-            return text;
+            return text.Trim();
         }
 
         public override void OnInterrupt() { }
