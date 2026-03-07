@@ -1,0 +1,232 @@
+﻿@page
+@model TeleCore.APIServer.Pages.OpenShiftModel
+@{
+    ViewData["Title"] = "SYSTEM INITIALIZATION | بدء الوردية";
+    Layout = null; 
+}
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <style>
+        :root {
+            --bg-dark: #050b14;
+            --panel-bg: rgba(10, 15, 25, 0.95);
+            --neon-cyan: #00f0ff;
+            --neon-green: #39ff14;
+            --neon-red: #ff003c;
+            --border-color: #1a2a40;
+            --text-main: #e2e8f0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Cairo', sans-serif;
+            background-image: linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
+            background-size: 30px 30px;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        .tech-font { font-family: 'Share Tech Mono', monospace; letter-spacing: 1px; }
+
+        .hud-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 0 30px rgba(0, 240, 255, 0.05);
+            position: relative;
+            padding: 30px;
+        }
+
+        /* زوايا الديكور العسكري */
+        .hud-panel::before { content: ''; position: absolute; top: -2px; left: -2px; width: 20px; height: 20px; border-top: 3px solid var(--neon-cyan); border-left: 3px solid var(--neon-cyan); }
+        .hud-panel::after { content: ''; position: absolute; bottom: -2px; right: -2px; width: 20px; height: 20px; border-bottom: 3px solid var(--neon-cyan); border-right: 3px solid var(--neon-cyan); }
+
+        .hud-header {
+            color: var(--neon-cyan);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+        }
+
+        .hud-input, .hud-select {
+            background: rgba(0, 0, 0, 0.6) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--neon-cyan) !important;
+            border-radius: 0;
+            padding: 12px;
+        }
+
+        /* كروت الشرائح المطورة */
+        .sim-node {
+            border: 1px solid var(--border-color);
+            background: rgba(13, 19, 31, 0.8);
+            transition: 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .sim-checkbox:checked + .sim-node {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        /* لمبة الحالة الحية */
+        .status-light {
+            height: 10px; width: 10px; border-radius: 50%; display: inline-block;
+            background-color: var(--neon-red);
+            box-shadow: 0 0 5px var(--neon-red);
+        }
+        .status-light.online {
+            background-color: var(--neon-green) !important;
+            box-shadow: 0 0 10px var(--neon-green) !important;
+            animation: blink 1.5s infinite;
+        }
+
+        @@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        .btn-launch {
+            background: rgba(0, 240, 255, 0.1);
+            color: var(--neon-cyan);
+            border: 1px solid var(--neon-cyan);
+            font-weight: 900;
+            padding: 20px;
+            transition: 0.3s;
+        }
+        .btn-launch:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 30px var(--neon-cyan); }
+
+        .hidden-checkbox { display: none; }
+    </style>
+</head>
+<body>
+
+
+
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="text-center mb-5">
+                <h1 class="tech-font mb-0" style="color: var(--neon-cyan);">INITIALIZING_COMMAND_CORE</h1>
+                <p class="text-muted tech-font small mt-2">v1.0.4 | SECURE_PROTOCOL_ENFORCED</p>
+            </div>
+
+            <div class="hud-panel">
+                <h3 class="hud-header tech-font">> SHIFT_INITIALIZATION_PROTOCOL</h3>
+
+                @if (!string.IsNullOrEmpty(Model.StatusMessage))
+                {
+                    <div class="alert bg-dark border-danger text-danger tech-font mb-4">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> ERROR_SIGNAL: @Model.StatusMessage
+                    </div>
+                }
+
+                <form method="post" id="initForm">
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-6">
+                            <label class="form-label tech-font text-muted small">> SELECT_HARDWARE_NODE</label>
+                            <select asp-for="ShiftRequest.DrawerId" asp-items="Model.AvailableDrawers" class="form-select hud-select tech-font" required>
+                                <option value="">-- NO_NODE_SELECTED --</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label tech-font text-muted small">> ALLOCATE_INITIAL_FUNDS</label>
+                            <div class="input-group">
+                                <span class="input-group-text hud-input tech-font">EGP</span>
+                                <input asp-for="ShiftRequest.OpeningCashBalance" type="number" step="0.01" class="form-control hud-input tech-font fs-4" required placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="tech-font mb-4 text-info">> AVAILABLE_COMMUNICATION_CHANNELS</h5>
+                    
+                    <div class="row g-3">
+                        @foreach (var sim in Model.AvailableSimCards)
+                        {
+                            <div class="col-md-4">
+                                <label class="w-100 m-0">
+                                    <input type="checkbox" name="ShiftRequest.SelectedSimCardIds" value="@sim.Id" class="hidden-checkbox sim-checkbox">
+                                    <div class="sim-node p-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge bg-dark border border-info text-info tech-font">@sim.Provider.ToUpper()</span>
+                                            <span class="status-light" id="light-@sim.Id" title="Offline"></span>
+                                        </div>
+                                        <div class="tech-font fs-5 text-white">@sim.PhoneNumber</div>
+                                        <div class="d-flex justify-content-between mt-3">
+                                            <div>
+                                                <small class="text-muted d-block small">BALANCE</small>
+                                                <span class="tech-font text-success">@sim.CurrentBalance.ToString("N2")</span>
+                                            </div>
+                                            <div class="text-start">
+                                                <small class="text-muted d-block small">OWNER</small>
+                                                <span class="small">@(sim.OwnerName ?? "N/A")</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mt-5 text-center">
+                        <button type="submit" class="btn btn-launch w-75 tech-font fs-4">
+                            <i class="bi bi-power me-2"></i> [ AUTHORIZE_&_START_SESSION ]
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+<script>
+    const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/transferHub")
+        .withAutomaticReconnect()
+        .build();
+
+    function updateSimStatus(id, isOnline) {
+        const light = document.getElementById("light-" + id);
+        if (light) {
+            if (isOnline) {
+                light.classList.add("online");
+                light.title = "Online";
+            } else {
+                light.classList.remove("online");
+                light.title = "Offline";
+            }
+        }
+    }
+
+    connection.on("UpdateSimStatus", (id, isOnline) => updateSimStatus(id, isOnline));
+    connection.on("NodeStatusChanged", (id, status) => updateSimStatus(id, status === "Online"));
+
+    connection.start().then(() => {
+        console.log("Telemetry Linked.");
+        connection.invoke("GetOnlineSims").then(ids => {
+            ids.forEach(id => updateSimStatus(id, true));
+        });
+    });
+
+    document.getElementById("initForm").onsubmit = function() {
+        new Audio('https://www.soundjay.com/communication/beep-07.mp3').play();
+        const btn = document.querySelector(".btn-launch");
+        btn.innerHTML = "[ LOADING_SYSTEM_CORE... ]";
+        btn.classList.add("disabled");
+    };
+</script>
+
+</body>
+</html>

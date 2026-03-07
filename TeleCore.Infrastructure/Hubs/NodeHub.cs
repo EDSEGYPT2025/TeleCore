@@ -41,7 +41,7 @@ namespace TeleCore.Infrastructure.Hubs
                 existingNode.LastSeen = DateTime.UtcNow;
             }
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(default);
 
             // 4. الرد على الموبايل بحالة التسجيل
             await Clients.Caller.SendAsync("RegistrationResponse", "Registered_Successfully_Wait_Approval");

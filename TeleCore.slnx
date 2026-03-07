@@ -4,6 +4,6 @@
   <Project Path="TeleCore.Domain/TeleCore.Domain.csproj" Id="70f284e4-02e9-4fb6-a2c5-3c422415dec8" />
   <Project Path="TeleCore.Infrastructure/TeleCore.Infrastructure.csproj" Id="064f58f8-5efb-486a-8e20-579b5d3aa791" />
   <Project Path="TeleCore.Mobile/TeleCore.Mobile.csproj">
-    <Deploy Solution="Debug|*" />
+    <Deploy />
   </Project>
 </Solution>

@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using TeleCore.Application.Common; // مسار الـ IApplicationDbContext
+using System.Text.RegularExpressions; // تأكد من إضافة هذا في أعلى الملف
 
 namespace TeleCore.APIServer.Hubs
 {
@@ -29,6 +31,8 @@ namespace TeleCore.APIServer.Hubs
                 }
 
                 await Clients.All.SendAsync("UpdateSimStatus", id, true);
+                // تأكيد إضافي للشاشة لضمان التوافق مع الكود السابق
+                await Clients.All.SendAsync("NodeStatusChanged", id, "Online");
             }
             Console.WriteLine($"[TeleCore] 📱 Mobile Registered for SIMs: {string.Join(", ", simIds)}");
         }
@@ -41,6 +45,7 @@ namespace TeleCore.APIServer.Hubs
                 _simConnections.TryRemove(item.Key, out _);
                 _simPublicKeys.TryRemove(item.Key, out _);
                 await Clients.All.SendAsync("UpdateSimStatus", item.Key, false);
+                await Clients.All.SendAsync("NodeStatusChanged", item.Key, "Offline");
             }
             await base.OnDisconnectedAsync(exception);
         }
@@ -72,54 +77,74 @@ namespace TeleCore.APIServer.Hubs
         }
 
         // 🛑 تحديث الداتابيز المتوافق مع الـ Entity الخاصة بك
-        public async Task UpdateTransactionStatus(string resultMessage)
+
+public async Task UpdateTransactionStatus(string resultMessage)
+    {
+        Console.WriteLine($"[TeleCore] 📩 Raw Result Received: {resultMessage}");
+
+        try
         {
-            // 1. إرسال النتيجة للوحة الكاشير لتظهر للمستخدم فوراً
-            await Clients.All.SendAsync("ReceiveTransactionResult", resultMessage);
-            Console.WriteLine($"[TeleCore] ✅ Result Received: {resultMessage}");
+            // 1. استخدام Regex لالتقاط أي رقم موبايل (11 رقم يبدأ بـ 01) من وسط النص
+            var match = Regex.Match(resultMessage, @"01\d{9}");
+            string? targetNumber = match.Success ? match.Value : null;
 
-            // 2. تحديث قاعدة البيانات في الخلفية
-            try
+            string finalStatus = "Failed";
+            string finalTarget = targetNumber ?? "UNKNOWN";
+            string finalAmount = "0.00";
+
+            if (!string.IsNullOrEmpty(targetNumber))
             {
-                // استخراج رقم الموبايل من الرسالة (نبحث عن كلمة تبدأ بـ 01 وطولها 11)
-                string[] words = resultMessage.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                string? targetNumber = words.FirstOrDefault(w => w.StartsWith("01") && w.Length == 11);
+                // 2. البحث عن العملية (المعلقة Pending) أو (التي تحت المعالجة Processing)
+                // أضفنا Processing لضمان التقاط العملية إذا كان الموبايل غير حالتها مسبقاً
+                var pendingTransaction = await _context.Transactions
+                    .Where(t => t.TargetNumber == targetNumber && (t.Status == "Pending" || t.Status == "Processing"))
+                    .OrderByDescending(t => t.CreatedAt)
+                    .FirstOrDefaultAsync();
 
-                if (!string.IsNullOrEmpty(targetNumber))
+                if (pendingTransaction != null)
                 {
-                    // جلب أحدث عملية معلقة لهذا الرقم
-                    var pendingTransaction = await _context.Transactions
-                        .Where(t => t.TargetNumber == targetNumber && t.Status == "Pending")
-                        .OrderByDescending(t => t.CreatedAt)
-                        .FirstOrDefaultAsync();
+                    finalTarget = pendingTransaction.TargetNumber;
+                    finalAmount = pendingTransaction.Amount.ToString("N2");
 
-                    if (pendingTransaction != null)
+                    // فحص الكلمات الدليلة للنجاح
+                    if (resultMessage.Contains("تحويل") || resultMessage.Contains("نجاح") || resultMessage.Contains("تم"))
                     {
-                        if (resultMessage.Contains("تم تحويل") || resultMessage.Contains("نجاح"))
-                        {
-                            // تغيير الحالة إلى مكتملة بناءً على المسميات في كلاسك
-                            pendingTransaction.Status = "Completed";
-                            await _context.SaveChangesAsync(default);
-                            Console.WriteLine($"[TeleCore] 🗄️ DB Updated: Transaction ID {pendingTransaction.Id} is now Completed.");
-                        }
-                        else if (resultMessage.Contains("رصيدك غير كاف") || resultMessage.Contains("فشل") || resultMessage.Contains("عفوا"))
-                        {
-                            // تغيير الحالة إلى فاشلة
-                            pendingTransaction.Status = "Failed";
-                            await _context.SaveChangesAsync(default);
-                            Console.WriteLine($"[TeleCore] 🗄️ DB Updated: Transaction ID {pendingTransaction.Id} is now Failed.");
-                        }
+                        finalStatus = "Completed";
+                        pendingTransaction.Status = "Completed";
                     }
                     else
                     {
-                        Console.WriteLine($"[TeleCore] ⚠️ No Pending transaction found in DB for number: {targetNumber}");
+                        finalStatus = "Failed";
+                        pendingTransaction.Status = "Failed";
+                    }
+
+                    await _context.SaveChangesAsync(default);
+                        Console.WriteLine($"[TeleCore] 🗄️ DB Updated: ID {pendingTransaction.Id} is now {finalStatus}.");
+                    }
+                else
+                {
+                    // إذا لم نجد Pending، ربما هي رسالة مكررة لعملية اكتملت بالفعل
+                    var completedTx = await _context.Transactions
+                        .Where(t => t.TargetNumber == targetNumber)
+                        .OrderByDescending(t => t.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (completedTx != null)
+                    {
+                        finalTarget = completedTx.TargetNumber;
+                        finalAmount = completedTx.Amount.ToString("N2");
+                        finalStatus = completedTx.Status;
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[TeleCore] ❌ Database Update Error: {ex.Message}");
-            }
+
+            // 3. إرسال البيانات النهائية
+            await Clients.All.SendAsync("ReceiveTransactionResult", finalStatus, resultMessage, finalTarget, finalAmount);
         }
-    }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TeleCore] ❌ Error: {ex.Message}");
+        }
+    }        // داخل الـ Hub
+}
 }

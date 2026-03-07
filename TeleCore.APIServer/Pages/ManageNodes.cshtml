@@ -1,0 +1,268 @@
+﻿@page
+@model TeleCore.APIServer.Pages.ManageNodesModel
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    ViewData["Title"] = "NODES COMMANDER | إدارة العُقد";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <style>
+        :root {
+            --bg-dark: #050b14;
+            --panel-bg: rgba(10, 15, 25, 0.95);
+            --neon-cyan: #00f0ff;
+            --neon-green: #39ff14;
+            --neon-red: #ff003c;
+            --neon-yellow: #ffc107;
+            --border-color: #1a2a40;
+            --text-main: #e2e8f0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Cairo', sans-serif;
+            background-image: linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        .tech-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .hud-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05);
+            margin-top: 20px;
+            padding: 20px;
+        }
+
+        .hud-header {
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            color: var(--neon-cyan);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .table-nodes {
+            color: white;
+            vertical-align: middle;
+        }
+
+            .table-nodes thead {
+                background: rgba(0,0,0,0.8);
+                color: var(--neon-cyan);
+                letter-spacing: 1px;
+            }
+
+            .table-nodes td {
+                border-bottom: 1px solid var(--border-color);
+                padding: 15px 10px;
+            }
+
+        .badge-cyber {
+            padding: 5px 10px;
+            border-radius: 0;
+            border: 1px solid;
+            font-weight: bold;
+        }
+
+        .badge-auth {
+            color: var(--neon-green);
+            border-color: var(--neon-green);
+            background: rgba(57, 255, 20, 0.1);
+        }
+
+        .badge-pending {
+            color: var(--neon-yellow);
+            border-color: var(--neon-yellow);
+            background: rgba(255, 193, 7, 0.1);
+        }
+
+        .btn-cyber {
+            background: transparent;
+            border-radius: 0;
+            padding: 5px 15px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn-auth-toggle {
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+            .btn-auth-toggle:hover {
+                background: rgba(0, 240, 255, 0.2);
+                color: white;
+            }
+
+        .btn-danger-cyber {
+            border: 1px solid var(--neon-red);
+            color: var(--neon-red);
+        }
+
+            .btn-danger-cyber:hover {
+                background: rgba(255, 0, 60, 0.2);
+                color: white;
+            }
+
+        .hud-input {
+            background: rgba(0,0,0,0.5) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--neon-cyan) !important;
+            border-radius: 0;
+        }
+
+        .hud-select {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border-color);
+            color: var(--neon-cyan);
+            padding: 5px;
+            border-radius: 0;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+            <h2 class="m-0 tech-font" style="color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);">
+                <i class="bi bi-radar"></i> NODES_COMMANDER_SYS
+            </h2>
+            <a href="/CashierDashboard" class="btn btn-outline-secondary tech-font rounded-0">
+                <i class="bi bi-arrow-return-left"></i> BACK_TO_HQ
+            </a>
+        </div>
+
+        @if (TempData["SystemMessage"] != null)
+        {
+            <div class="alert alert-@TempData["MessageType"] tech-font rounded-0 text-center shadow">
+                > SYSTEM_MSG: @TempData["SystemMessage"]
+            </div>
+        }
+
+        <div class="hud-panel mb-4" style="border-color: var(--neon-green);">
+            <h6 class="hud-header text-success">> MANUAL_NODE_INJECTION</h6>
+            <form method="post" asp-page-handler="AddNode" class="row g-2 align-items-center">
+                <div class="col-md-4">
+                    <input type="text" name="deviceId" class="form-control hud-input tech-font" placeholder="DEVICE_UNIQUE_ID (e.g. android_1234)" required />
+                </div>
+                <div class="col-md-4">
+                    <input type="text" name="deviceModel" class="form-control hud-input tech-font" placeholder="DEVICE_MODEL (e.g. Samsung A54)" />
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-cyber" style="border-color: var(--neon-green); color: var(--neon-green); width: 100%;">
+                        <i class="bi bi-plus-square"></i> INJECT_NODE
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="hud-panel">
+            <h5 class="hud-header">> DISCOVERED_MOBILE_NODES</h5>
+            <div class="table-responsive">
+                <table class="table table-nodes tech-font text-center">
+                    <thead>
+                        <tr>
+                            <th>DEVICE_ID / MODEL</th>
+                            <th>BRANCH_ASSIGNMENT</th>
+                            <th>SIM_CARD (ARMING)</th>
+                            <th>STATUS</th>
+                            <th>ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Nodes.Any())
+                        {
+                            foreach (var node in Model.Nodes)
+                            {
+                                // 🟢 قراءة الشريحة من الخريطة المجهزة مسبقاً في السيرفر
+                                Model.NodeSimMappings.TryGetValue(node.Id, out var currentSimId);
+
+                                <tr>
+                                    <td class="text-start">
+                                        <div><i class="bi bi-phone"></i> <strong>@node.DeviceUniqueId</strong></div>
+                                        <small class="text-muted">@node.DeviceModel</small>
+                                    </td>
+
+                                    <td>
+                                        <form method="post" asp-page-handler="AssignBranch" class="d-flex justify-content-center">
+                                            <input type="hidden" name="nodeId" value="@node.Id" />
+                                            <select name="branchId" class="hud-select me-2">
+                                                <option value="">-- NO_BRANCH --</option>
+                                                @foreach (var branch in Model.AvailableBranches)
+                                                {
+                                                    <option value="@branch.Value" selected="@(node.BranchId.ToString() == branch.Value)">@branch.Text</option>
+                                                }
+                                            </select>
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-0"><i class="bi bi-floppy"></i></button>
+                                        </form>
+                                    </td>
+
+                                    <td>
+                                        <form method="post" asp-page-handler="AssignSim" class="d-flex justify-content-center">
+                                            <input type="hidden" name="nodeId" value="@node.Id" />
+                                            <select name="simId" class="hud-select me-2 text-warning" style="border-color: var(--neon-yellow);">
+                                                <option value="">-- NO_SIM_CARD --</option>
+                                                @foreach (var sim in Model.AvailableSims)
+                                                {
+                                                    <option value="@sim.Value" selected="@(currentSimId == sim.Value)">@sim.Text</option>
+                                                }
+                                            </select>
+                                            <button type="submit" class="btn btn-sm btn-outline-warning rounded-0"><i class="bi bi-sim"></i></button>
+                                        </form>
+                                    </td>
+
+                                    <td>
+                                        @if (node.IsAuthorized)
+                                        {
+                                            <span class="badge-cyber badge-auth"><i class="bi bi-shield-check"></i> AUTHORIZED</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge-cyber badge-pending"><i class="bi bi-shield-exclamation"></i> PENDING</span>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        <div class="d-flex justify-content-center gap-2">
+                                            <form method="post" asp-page-handler="ToggleAuth">
+                                                <input type="hidden" name="id" value="@node.Id" />
+                                                <button type="submit" class="btn-cyber btn-auth-toggle">
+                                                    @(node.IsAuthorized ? "REVOKE_ACCESS" : "GRANT_ACCESS")
+                                                </button>
+                                            </form>
+                                            <form method="post" asp-page-handler="DeleteNode" onsubmit="return confirm('تدمير هذه العقدة؟ لا يمكن التراجع!');">
+                                                <input type="hidden" name="id" value="@node.Id" />
+                                                <button type="submit" class="btn-cyber btn-danger-cyber"><i class="bi bi-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

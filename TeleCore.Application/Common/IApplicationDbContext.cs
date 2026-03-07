@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using TeleCore.Domain.Entities; 
+using TeleCore.Domain.Entities;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace TeleCore.Application.Common
 {
@@ -11,6 +13,13 @@ namespace TeleCore.Application.Common
         DbSet<Transaction> Transactions { get; }
         DbSet<MobileNode> MobileNodes { get; }
 
-        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+        // ✅ الجداول الجديدة التي أضفناها
+        DbSet<CommissionRule> CommissionRules { get; }
+        DbSet<Cashier> Cashiers { get; }
+        DbSet<Drawer> Drawers { get; }
+        DbSet<Shift> Shifts { get; }
+        DbSet<ShiftSimCard> ShiftSimCards { get; }
+
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     }
 }

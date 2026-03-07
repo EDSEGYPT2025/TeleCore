@@ -20,8 +20,8 @@ namespace TeleCore.Application.Services
         public async Task<(Transaction transaction, string encryptedPin)> ExecuteTransferAsync(int simId, string targetNumber, decimal amount, string clearPin)
         {
             // 1. حساب العمولة
-            var (commission, total) = _commissionService.CalculateCommission(amount);
-
+            // تأكد من وضع كلمة await لأنها أصبحت Async، وإضافة نوع العملية "CashOut" (سحب/تحويل)
+            var (commission, total) = await _commissionService.CalculateCommissionAsync(amount, "CashOut");
             // 2. جلب بيانات الشريحة
             var sim = await _context.SimCards.FirstOrDefaultAsync(s => s.Id == simId);
             if (sim == null || sim.CurrentBalance < amount)
@@ -61,7 +61,7 @@ namespace TeleCore.Application.Services
             _context.Transactions.Add(transaction);
 
             // 7. حفظ كل التغييرات في خبطة واحدة للداتابيز
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(default);
 
             // إرجاع العملية والـ PIN المشفر عشان الكاشير يبعتهم للموبايل
             return (transaction, encryptedPinBase64);

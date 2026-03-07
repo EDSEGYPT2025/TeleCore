@@ -67,7 +67,7 @@ namespace TeleCore.APIServer.Controllers
             };
 
             _context.SimCards.Add(sim);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(default);
 
             return Ok("تمت إضافة الشريحة بنجاح لداتابيز السيرفر الحقيقية!");
         }

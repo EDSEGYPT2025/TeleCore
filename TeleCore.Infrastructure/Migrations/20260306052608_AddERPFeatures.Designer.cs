@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TeleCore.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TeleCore.Infrastructure.Persistence;
 namespace TeleCore.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306052608_AddERPFeatures")]
+    partial class AddERPFeatures
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -52,7 +55,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.ToTable("Branches", (string)null);
+                    b.ToTable("Branches");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.Cashier", b =>
@@ -83,7 +86,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Cashiers", (string)null);
+                    b.ToTable("Cashiers");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.CommissionRule", b =>
@@ -123,7 +126,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("CommissionRules", (string)null);
+                    b.ToTable("CommissionRules");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.Company", b =>
@@ -146,7 +149,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Companies", (string)null);
+                    b.ToTable("Companies");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.Drawer", b =>
@@ -173,7 +176,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Drawers", (string)null);
+                    b.ToTable("Drawers");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.MobileNode", b =>
@@ -209,7 +212,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasIndex("BranchId");
 
-                    b.ToTable("MobileNodes", (string)null);
+                    b.ToTable("MobileNodes");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.Shift", b =>
@@ -249,7 +252,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Shifts", (string)null);
+                    b.ToTable("Shifts");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.ShiftSimCard", b =>
@@ -280,7 +283,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasIndex("SimCardId");
 
-                    b.ToTable("ShiftSimCards", (string)null);
+                    b.ToTable("ShiftSimCards");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.SimCard", b =>
@@ -355,7 +358,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasIndex("MobileNodeId");
 
-                    b.ToTable("SimCards", (string)null);
+                    b.ToTable("SimCards");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.Transaction", b =>
@@ -417,7 +420,7 @@ namespace TeleCore.Infrastructure.Migrations
 
                     b.HasIndex("SimCardId");
 
-                    b.ToTable("Transactions", (string)null);
+                    b.ToTable("Transactions");
                 });
 
             modelBuilder.Entity("TeleCore.Domain.Entities.Branch", b =>

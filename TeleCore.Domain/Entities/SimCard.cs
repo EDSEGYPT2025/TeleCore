@@ -10,6 +10,10 @@
         public decimal CurrentBalance { get; set; } = 0;
         public string? AssignedDeviceId { get; set; }
 
+        // 🟢 الإضافة السحرية التي ستحل جميع الأخطاء (ربط الشريحة بالموبايل)
+        public int? MobileNodeId { get; set; }
+        public MobileNode? MobileNode { get; set; }
+
         // ✅ البيانات الإضافية الجديدة للمحفظة
         public string OwnerName { get; set; } = string.Empty; // اسم صاحب المحفظة
         public string? NationalId { get; set; } // الرقم القومي (اختياري)

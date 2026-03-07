@@ -15,5 +15,6 @@
 
         public decimal RoundingStep { get; set; }
         public bool IsActive { get; set; } = true;
+
     }
 }

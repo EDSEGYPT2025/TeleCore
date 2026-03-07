@@ -23,6 +23,7 @@ builder.Services.AddScoped<IApplicationDbContext>(provider =>
 // 3. تسجيل خدمات الـ Application
 builder.Services.AddScoped<ICommissionService, CommissionService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IShiftService, ShiftService>();
 
 
 builder.Services.AddRazorPages();
