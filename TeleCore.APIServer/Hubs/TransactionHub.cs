@@ -2,13 +2,13 @@
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
-using TeleCore.Application.Common; // مسار الـ IApplicationDbContext
-using System.Text.RegularExpressions; // تأكد من إضافة هذا في أعلى الملف
+using TeleCore.Application.Common;
 
 namespace TeleCore.APIServer.Hubs
 {
     public class TransactionHub : Hub
     {
+        // 🗺️ خرائط الربط اللحظية
         public static readonly ConcurrentDictionary<int, string> _simConnections = new();
         public static readonly ConcurrentDictionary<int, string> _simPublicKeys = new();
 
@@ -19,24 +19,24 @@ namespace TeleCore.APIServer.Hubs
             _context = context;
         }
 
-        public async Task RegisterMobile(List<int> simIds, string publicKey)
+        // 🎯 تحديث دالة التسجيل لتعمل مع إرسال الموبايل الحالي (متغير واحد فقط)
+        // 🛡️ يجب أن يكون التوقيع هكذا بالضبط ليتوافق مع الموبايل
+
+        // 🛡️ استبدل دالة RegisterMobile في ملف TransactionHub.cs بهذا الكود
+        public async Task RegisterMobile(List<int> simIds)
         {
             foreach (var id in simIds)
             {
                 _simConnections[id] = Context.ConnectionId;
 
-                if (!string.IsNullOrEmpty(publicKey))
-                {
-                    _simPublicKeys[id] = publicKey;
-                }
-
-                await Clients.All.SendAsync("UpdateSimStatus", id, true);
-                // تأكيد إضافي للشاشة لضمان التوافق مع الكود السابق
+                // إرسال إشارة خضراء فورية للشاشة
                 await Clients.All.SendAsync("NodeStatusChanged", id, "Online");
+                await Clients.All.SendAsync("UpdateSimStatus", id, true);
             }
             Console.WriteLine($"[TeleCore] 📱 Mobile Registered for SIMs: {string.Join(", ", simIds)}");
         }
 
+        // 🛑 عند قطع الاتصال: تنظيف الرادار فوراً
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var itemsToRemove = _simConnections.Where(x => x.Value == Context.ConnectionId).ToList();
@@ -44,6 +44,7 @@ namespace TeleCore.APIServer.Hubs
             {
                 _simConnections.TryRemove(item.Key, out _);
                 _simPublicKeys.TryRemove(item.Key, out _);
+
                 await Clients.All.SendAsync("UpdateSimStatus", item.Key, false);
                 await Clients.All.SendAsync("NodeStatusChanged", item.Key, "Offline");
             }
@@ -63,88 +64,57 @@ namespace TeleCore.APIServer.Hubs
             return Task.FromResult(_simConnections.Keys.ToList());
         }
 
-        public async Task SendTransferOrder(int simId, string targetNumber, double amount, string encryptedPin)
+        // 🎯 تحديث حالة العملية من الموبايل للسيرفر
+        public async Task UpdateTransactionStatus(string resultMessage)
         {
-            if (_simConnections.TryGetValue(simId, out string? connectionId))
+            Console.WriteLine($"[TeleCore] 📩 Raw Result Received: {resultMessage}");
+
+            try
             {
-                await Clients.Client(connectionId).SendAsync("ReceiveSecureOrder", targetNumber, amount, encryptedPin);
-                Console.WriteLine($"[TeleCore] 🚀 Order sent to SIM {simId}: {amount} to {targetNumber}");
-            }
-            else
-            {
-                Console.WriteLine($"[TeleCore] ❌ Failed to send order: SIM {simId} is offline.");
-            }
-        }
+                // 1. التقاط رقم الموبايل من الرسالة
+                var match = Regex.Match(resultMessage, @"01\d{9}");
+                string? targetNumber = match.Success ? match.Value : null;
 
-        // 🛑 تحديث الداتابيز المتوافق مع الـ Entity الخاصة بك
+                string finalStatus = "Failed";
+                string finalTarget = targetNumber ?? "UNKNOWN";
+                string finalAmount = "0.00";
 
-public async Task UpdateTransactionStatus(string resultMessage)
-    {
-        Console.WriteLine($"[TeleCore] 📩 Raw Result Received: {resultMessage}");
-
-        try
-        {
-            // 1. استخدام Regex لالتقاط أي رقم موبايل (11 رقم يبدأ بـ 01) من وسط النص
-            var match = Regex.Match(resultMessage, @"01\d{9}");
-            string? targetNumber = match.Success ? match.Value : null;
-
-            string finalStatus = "Failed";
-            string finalTarget = targetNumber ?? "UNKNOWN";
-            string finalAmount = "0.00";
-
-            if (!string.IsNullOrEmpty(targetNumber))
-            {
-                // 2. البحث عن العملية (المعلقة Pending) أو (التي تحت المعالجة Processing)
-                // أضفنا Processing لضمان التقاط العملية إذا كان الموبايل غير حالتها مسبقاً
-                var pendingTransaction = await _context.Transactions
-                    .Where(t => t.TargetNumber == targetNumber && (t.Status == "Pending" || t.Status == "Processing"))
-                    .OrderByDescending(t => t.CreatedAt)
-                    .FirstOrDefaultAsync();
-
-                if (pendingTransaction != null)
+                if (!string.IsNullOrEmpty(targetNumber))
                 {
-                    finalTarget = pendingTransaction.TargetNumber;
-                    finalAmount = pendingTransaction.Amount.ToString("N2");
-
-                    // فحص الكلمات الدليلة للنجاح
-                    if (resultMessage.Contains("تحويل") || resultMessage.Contains("نجاح") || resultMessage.Contains("تم"))
-                    {
-                        finalStatus = "Completed";
-                        pendingTransaction.Status = "Completed";
-                    }
-                    else
-                    {
-                        finalStatus = "Failed";
-                        pendingTransaction.Status = "Failed";
-                    }
-
-                    await _context.SaveChangesAsync(default);
-                        Console.WriteLine($"[TeleCore] 🗄️ DB Updated: ID {pendingTransaction.Id} is now {finalStatus}.");
-                    }
-                else
-                {
-                    // إذا لم نجد Pending، ربما هي رسالة مكررة لعملية اكتملت بالفعل
-                    var completedTx = await _context.Transactions
-                        .Where(t => t.TargetNumber == targetNumber)
+                    // 2. البحث عن العملية المعلقة في قاعدة البيانات
+                    var pendingTransaction = await _context.Transactions
+                        .Where(t => t.TargetNumber == targetNumber && (t.Status == "Pending" || t.Status == "Processing"))
                         .OrderByDescending(t => t.CreatedAt)
                         .FirstOrDefaultAsync();
 
-                    if (completedTx != null)
+                    if (pendingTransaction != null)
                     {
-                        finalTarget = completedTx.TargetNumber;
-                        finalAmount = completedTx.Amount.ToString("N2");
-                        finalStatus = completedTx.Status;
+                        finalTarget = pendingTransaction.TargetNumber;
+                        finalAmount = pendingTransaction.Amount.ToString("N2");
+
+                        if (resultMessage.Contains("تحويل") || resultMessage.Contains("نجاح") || resultMessage.Contains("تم"))
+                        {
+                            finalStatus = "Completed";
+                            pendingTransaction.Status = "Completed";
+                        }
+                        else
+                        {
+                            finalStatus = "Failed";
+                            pendingTransaction.Status = "Failed";
+                        }
+
+                        await _context.SaveChangesAsync(default);
+                        Console.WriteLine($"[TeleCore] 🗄️ DB Updated: ID {pendingTransaction.Id} is now {finalStatus}.");
                     }
                 }
-            }
 
-            // 3. إرسال البيانات النهائية
-            await Clients.All.SendAsync("ReceiveTransactionResult", finalStatus, resultMessage, finalTarget, finalAmount);
+                // 3. إرسال النتيجة النهائية للوحة الكاشير لتحديث الشاشة فوراً
+                await Clients.All.SendAsync("ReceiveTransactionResult", finalStatus, resultMessage, finalTarget, finalAmount);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TeleCore] ❌ Error in UpdateTransactionStatus: {ex.Message}");
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[TeleCore] ❌ Error: {ex.Message}");
-        }
-    }        // داخل الـ Hub
-}
+    }
 }

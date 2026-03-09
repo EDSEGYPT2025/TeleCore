@@ -68,7 +68,7 @@ app.MapRazorPages();
 
 // في ملف Program.cs بالسيرفر - السطر الأخير تقريباً
 // غير transactionHub إلى transferHub ليتطابق مع الموبايل
-app.MapHub<TransactionHub>("/transferHub");
+app.MapHub<TransactionHub>("/TransactionHub");
 
 // إذا كنت لا تستخدم NodeHub حالياً، يمكنك حذفه أو تركه، 
 // لكن الأهم هو السطر أعلاه الخاص بالـ TransactionHub

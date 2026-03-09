@@ -183,7 +183,7 @@
                         <tr>
                             <th>DEVICE_ID / MODEL</th>
                             <th>BRANCH_ASSIGNMENT</th>
-                            <th>SIM_CARD (ARMING)</th>
+                            <th>SIM_CARDS (ARMING)</th>
                             <th>STATUS</th>
                             <th>ACTIONS</th>
                         </tr>
@@ -193,9 +193,6 @@
                         {
                             foreach (var node in Model.Nodes)
                             {
-                                // 🟢 قراءة الشريحة من الخريطة المجهزة مسبقاً في السيرفر
-                                Model.NodeSimMappings.TryGetValue(node.Id, out var currentSimId);
-
                                 <tr>
                                     <td class="text-start">
                                         <div><i class="bi bi-phone"></i> <strong>@node.DeviceUniqueId</strong></div>
@@ -217,16 +214,34 @@
                                     </td>
 
                                     <td>
+                                        @if (Model.NodeSimMappings.TryGetValue(node.Id, out var activeSims) && activeSims.Any())
+                                        {
+                                            <div class="d-flex flex-wrap gap-1 justify-content-center mb-2">
+                                                @foreach (var sim in activeSims)
+                                                {
+                                                    <form method="post" asp-page-handler="UnassignSim" class="m-0">
+                                                        <input type="hidden" name="simId" value="@sim.Id" />
+                                                        <span class="badge-cyber badge-auth d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                                                            <i class="bi bi-sim"></i> @sim.PhoneNumber
+                                                            <button type="submit" class="btn btn-sm p-0 m-0 text-danger" title="سحب الشريحة" style="line-height: 0;">
+                                                                <i class="bi bi-x-square-fill"></i>
+                                                            </button>
+                                                        </span>
+                                                    </form>
+                                                }
+                                            </div>
+                                        }
+
                                         <form method="post" asp-page-handler="AssignSim" class="d-flex justify-content-center">
                                             <input type="hidden" name="nodeId" value="@node.Id" />
                                             <select name="simId" class="hud-select me-2 text-warning" style="border-color: var(--neon-yellow);">
-                                                <option value="">-- NO_SIM_CARD --</option>
-                                                @foreach (var sim in Model.AvailableSims)
+                                                <option value="">-- ADD_SIM_CARD --</option>
+                                                @foreach (var simOpt in Model.AvailableSims)
                                                 {
-                                                    <option value="@sim.Value" selected="@(currentSimId == sim.Value)">@sim.Text</option>
+                                                    <option value="@simOpt.Value">@simOpt.Text</option>
                                                 }
                                             </select>
-                                            <button type="submit" class="btn btn-sm btn-outline-warning rounded-0"><i class="bi bi-sim"></i></button>
+                                            <button type="submit" class="btn btn-sm btn-outline-warning rounded-0" title="إضافة سلاح جديد"><i class="bi bi-plus-lg"></i></button>
                                         </form>
                                     </td>
 

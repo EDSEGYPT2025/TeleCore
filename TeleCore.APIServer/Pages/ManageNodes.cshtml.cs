@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TeleCore.Application.Common;
 using TeleCore.Domain.Entities;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace TeleCore.APIServer.Pages
 {
@@ -20,8 +23,8 @@ namespace TeleCore.APIServer.Pages
         public List<SelectListItem> AvailableBranches { get; set; } = new();
         public List<SelectListItem> AvailableSims { get; set; } = new();
 
-        // 🗺️ خريطة لتخزين الشريحة المرتبطة بكل جهاز (مفتاح: رقم الجهاز، قيمة: رقم الشريحة)
-        public Dictionary<int, string> NodeSimMappings { get; set; } = new();
+        // 🟢 التعديل الاستراتيجي: الخريطة أصبحت تحتفظ بقائمة (List) من الشرائح لكل جهاز بدلاً من شريحة واحدة
+        public Dictionary<int, List<SimCard>> NodeSimMappings { get; set; } = new();
 
         [TempData]
         public string SystemMessage { get; set; }
@@ -93,20 +96,32 @@ namespace TeleCore.APIServer.Pages
             return RedirectToPage();
         }
 
+        // 🟢 تم تعديل الدالة لكي لا تمسح الشريحة القديمة (نظام التسليح المتعدد)
         public async Task<IActionResult> OnPostAssignSimAsync(int nodeId, int? simId)
         {
-            var oldSim = await _context.SimCards.FirstOrDefaultAsync(s => s.MobileNodeId == nodeId);
-            if (oldSim != null) oldSim.MobileNodeId = null;
-
             if (simId.HasValue)
             {
                 var newSim = await _context.SimCards.FindAsync(simId.Value);
                 if (newSim != null) newSim.MobileNodeId = nodeId;
-            }
+                await _context.SaveChangesAsync(default);
 
-            await _context.SaveChangesAsync(default);
-            SystemMessage = "تم تسليح الجهاز بالشريحة بنجاح.";
-            MessageType = "success";
+                SystemMessage = "تم تسليح الجهاز بالشريحة كخط دعم إضافي.";
+                MessageType = "success";
+            }
+            return RedirectToPage();
+        }
+
+        // 🟢 دالة جديدة لسحب شريحة معينة من الجهاز بأسلوب جراحي
+        public async Task<IActionResult> OnPostUnassignSimAsync(int simId)
+        {
+            var sim = await _context.SimCards.FindAsync(simId);
+            if (sim != null)
+            {
+                sim.MobileNodeId = null;
+                await _context.SaveChangesAsync(default);
+                SystemMessage = "تم سحب الشريحة من الجهاز بنجاح.";
+                MessageType = "warning";
+            }
             return RedirectToPage();
         }
 
@@ -115,8 +130,9 @@ namespace TeleCore.APIServer.Pages
             var node = await _context.MobileNodes.FindAsync(id);
             if (node != null)
             {
-                var linkedSim = await _context.SimCards.FirstOrDefaultAsync(s => s.MobileNodeId == id);
-                if (linkedSim != null) linkedSim.MobileNodeId = null;
+                // فك ارتباط كل الشرائح المربوطة بهذا الجهاز قبل تدميره
+                var linkedSims = await _context.SimCards.Where(s => s.MobileNodeId == id).ToListAsync();
+                foreach (var sim in linkedSims) sim.MobileNodeId = null;
 
                 _context.MobileNodes.Remove(node);
                 await _context.SaveChangesAsync(default);
@@ -138,20 +154,20 @@ namespace TeleCore.APIServer.Pages
                 .Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Name })
                 .ToListAsync();
 
+            // 🟢 جلب الشرائح الحرة فقط (غير المربوطة بأي جهاز) لكي لا تظهر نفس الشريحة مرتين
             AvailableSims = await _context.SimCards
-                .Where(s => s.IsActive)
+                .Where(s => s.IsActive && s.MobileNodeId == null)
                 .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = $"{s.PhoneNumber} ({s.Provider})" })
                 .ToListAsync();
 
-            // 🗺️ بناء خريطة الربط لإرسالها للواجهة بأمان
+            // 🟢 بناء خريطة الربط للقائمة الجديدة (تجميع الشرائح حسب رقم الجهاز)
             var assignedSims = await _context.SimCards
                 .Where(s => s.MobileNodeId != null && s.IsActive)
                 .ToListAsync();
 
-            foreach (var sim in assignedSims)
-            {
-                NodeSimMappings[sim.MobileNodeId.Value] = sim.Id.ToString();
-            }
+            NodeSimMappings = assignedSims
+                .GroupBy(s => s.MobileNodeId.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
         }
     }
 }

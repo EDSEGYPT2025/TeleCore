@@ -2,42 +2,82 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="TeleCore.Mobile.MainPage" 
-             Title="TeleCore Control Center">
+             Title="[ HQ_COMMAND_UPLINK ]"
+             BackgroundColor="#050B14">
 
     <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="20">
+        <VerticalStackLayout Padding="20" Spacing="25">
 
-            <Frame BorderColor="#2196F3" CornerRadius="10">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="حالة الاتصال بالسيرفر" FontAttributes="Bold" FontSize="18" HorizontalOptions="Center"/>
+            <Label Text="TELECORE MOBILE NODE :: ACTIVE"
+                   TextColor="#00F0FF"
+                   FontFamily="monospace"
+                   FontSize="13"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center" 
+                   CharacterSpacing="2"/>
+            <BoxView HeightRequest="1" Color="#00F0FF" Opacity="0.4" Margin="0,-10,0,10" />
+
+            <Frame BorderColor="#00F0FF" BackgroundColor="#0A1128" CornerRadius="0" HasShadow="True">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="> RADAR_UPLINK_STATUS" FontFamily="monospace" TextColor="#00F0FF" FontAttributes="Bold" FontSize="15" />
+
                     <Button x:Name="BtnReconnect" 
-                            Text="إعادة الاتصال بالسيرفر" 
+                            Text="[ ESTABLISH_CONNECTION ]" 
                             Clicked="OnReconnectClicked"
-                            BackgroundColor="#2196F3"
-                            TextColor="White"/>
+                            BackgroundColor="Transparent"
+                            BorderColor="#00F0FF"
+                            BorderWidth="1.5"
+                            TextColor="#00F0FF"
+                            CornerRadius="0"
+                            FontFamily="monospace"
+                            FontAttributes="Bold"/>
                 </VerticalStackLayout>
             </Frame>
 
-            <Frame BorderColor="#4CAF50" CornerRadius="10">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="إعدادات النظام" FontAttributes="Bold" FontSize="18" HorizontalOptions="Center"/>
-                    <Entry x:Name="EntPin" Placeholder="الرقم السري الافتراضي" Keyboard="Numeric"/>
-                    <Button Text="حفظ الإعدادات" 
+            <Frame BorderColor="#39FF14" BackgroundColor="#0A1C10" CornerRadius="0" HasShadow="True">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="> SECURITY_OVERRIDE_PIN" FontFamily="monospace" TextColor="#39FF14" FontAttributes="Bold" FontSize="15" />
+
+                    <Entry x:Name="EntPin" 
+                           Placeholder="ENTER_DEFAULT_PIN..." 
+                           PlaceholderColor="#1F5C2B"
+                           TextColor="#39FF14"
+                           BackgroundColor="#050B14"
+                           Keyboard="Numeric"
+                           FontFamily="monospace"
+                           ClearButtonVisibility="WhileEditing"/>
+
+                    <Button Text="[ SAVE_CONFIG ]" 
                             Clicked="OnSaveSimSettingsClicked"
-                            BackgroundColor="#4CAF50"
-                            TextColor="White"/>
+                            BackgroundColor="Transparent"
+                            BorderColor="#39FF14"
+                            BorderWidth="1.5"
+                            TextColor="#39FF14"
+                            CornerRadius="0"
+                            FontFamily="monospace"
+                            FontAttributes="Bold"/>
                 </VerticalStackLayout>
             </Frame>
 
-            <Frame BorderColor="#FF9800" CornerRadius="10">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="خدمة الوصول (Accessibility)" FontAttributes="Bold" FontSize="18" HorizontalOptions="Center"/>
-                    <Label Text="يجب تفعيل 'TeleCore Auto-Processor' من إعدادات الهاتف ليعمل التحويل التلقائي" 
-                           FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center"/>
-                    <Button Text="فتح إعدادات التفعيل" 
+            <Frame BorderColor="#FF9800" BackgroundColor="#261700" CornerRadius="0" HasShadow="True">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="> CORE_ACCESS_PROTOCOLS" FontFamily="monospace" TextColor="#FF9800" FontAttributes="Bold" FontSize="15" />
+
+                    <Label Text="SYSTEM REQUIREMENT: 'TeleCore Auto-Processor' MUST BE GRANTED ACCESSIBILITY PRIVILEGES TO EXECUTE AUTO-ROUTING." 
+                           FontSize="11" 
+                           TextColor="#CC7A00" 
+                           FontFamily="monospace"
+                           HorizontalTextAlignment="Start"/>
+
+                    <Button Text="[ INITIALIZE_OVERRIDE ]" 
                             Clicked="OnEnableAccessibilityClicked"
-                            BackgroundColor="#FF9800"
-                            TextColor="White"/>
+                            BackgroundColor="Transparent"
+                            BorderColor="#FF9800"
+                            BorderWidth="1.5"
+                            TextColor="#FF9800"
+                            CornerRadius="0"
+                            FontFamily="monospace"
+                            FontAttributes="Bold"/>
                 </VerticalStackLayout>
             </Frame>
 

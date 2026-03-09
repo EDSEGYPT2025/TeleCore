@@ -26,11 +26,11 @@ namespace TeleCore.Mobile.Pages
 
             await LoadingLabel.FadeTo(1, 500);
 
-            // 🚀 محاولة الاتصال في الخلفية عشان ما نعطلش فتح التطبيق
+            // 🚀 التعديل: استخدام الرادار الجديد NetworkService بدلاً من القديم المحذوف
             _ = Task.Run(async () => {
                 try
                 {
-                    await TeleCore.Mobile.Services.SignalRService.Instance.ConnectAsync();
+                    await TeleCore.Mobile.Services.NetworkService.Instance.StartAsync();
                 }
                 catch { /* نكتفي بتسجيل الخطأ في الـ Debug */ }
             });

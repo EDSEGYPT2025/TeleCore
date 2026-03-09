@@ -77,17 +77,17 @@ namespace TeleCore.APIServer.Controllers
                 });
             }
 
-            // ✅ الجهاز مصرح له! نبحث عن الشريحة التي ربطها المسؤول بهذا الجهاز
-            var assignedSim = await _context.SimCards
-                .FirstOrDefaultAsync(s => s.MobileNodeId == node.Id && s.IsActive);
+            // ✅ الجهاز مصرح له! نجلب الشرائح (ID + PhoneNumber)
+            var assignedSims = await _context.SimCards
+                .Where(s => s.MobileNodeId == node.Id && s.IsActive)
+                .ToDictionaryAsync(s => s.Id, s => s.PhoneNumber); // 🟢 تحويلها إلى Dictionary
 
             return Ok(new DeviceSyncResponse
             {
                 Success = true,
                 IsAuthorized = true,
                 Message = "AUTHORIZED: الجهاز متصل وجاهز لتلقي الأوامر.",
-                AssignedSimNumber = assignedSim?.PhoneNumber ?? "NO_SIM_ASSIGNED",
-                Provider = assignedSim?.Provider ?? "N/A"
+                AssignedSims = assignedSims // 🟢 استخدام الاسم الجديد (AssignedSims)
             });
         }
     }

@@ -1,5 +1,9 @@
 ﻿using System.Text;
-using System.Text.Json; // 👈 استخدمنا مكتبة دوت نت الأصلية
+using System.Text.Json;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System;
+using System.Net.Http;
 
 namespace TeleCore.Mobile.Services
 {
@@ -7,8 +11,9 @@ namespace TeleCore.Mobile.Services
     {
         private readonly HttpClient _httpClient;
 
-        // الرابط الأونلاين الجديد للسيرفر
+        // الرابط الأونلاين الموحد للسيرفر
         private const string BaseUrl = "https://dbshield.runasp.net/api";
+
         public ApiService()
         {
             _httpClient = new HttpClient();
@@ -32,8 +37,7 @@ namespace TeleCore.Mobile.Services
                 }
                 else
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    System.Diagnostics.Debug.WriteLine($"[TeleCore API] Error: {error}");
+                    System.Diagnostics.Debug.WriteLine($"[TeleCore API] Error: {response.StatusCode}");
                     return false;
                 }
             }
@@ -53,19 +57,18 @@ namespace TeleCore.Mobile.Services
 
                 if (pendingTx.Count == 0) return;
 
-                System.Diagnostics.Debug.WriteLine($"[TeleCore] 🔄 جاري مزامنة {pendingTx.Count} عملية معلقة...");
+                System.Diagnostics.Debug.WriteLine($"[TeleCore] 🔄 جاري مزامنة {pendingTx.Count} عملية...");
 
                 foreach (var tx in pendingTx)
                 {
                     int simId = 1;
                     string url = $"{BaseUrl}/transactions/send-money?simId={simId}&targetNumber={tx.ReceiverNumber}&amount={tx.Amount}";
-
                     var response = await _httpClient.PostAsync(url, null);
 
                     if (response.IsSuccessStatusCode)
                     {
                         await db.MarkAsSyncedAsync(tx.Id);
-                        System.Diagnostics.Debug.WriteLine($"[TeleCore] ✅ تم مزامنة العملية {tx.TransactionId}");
+                        System.Diagnostics.Debug.WriteLine($"[TeleCore] ✅ تم مزامنة {tx.TransactionId}");
                     }
                 }
             }
@@ -75,59 +78,103 @@ namespace TeleCore.Mobile.Services
             }
         }
 
-        // 🛑 التعديل الأهم هنا: ربطنا الدالة بالـ BaseUrl
         public async Task<List<int>> GetMySimsFromServer(string deviceId)
         {
             try
             {
-                // تم التعديل لاستخدام الرابط الأونلاين
                 string url = $"{BaseUrl}/Sims/my-assigned-sims/{deviceId}";
                 var response = await _httpClient.GetAsync(url);
 
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-
-                    // استخدام System.Text.Json بدلاً من Newtonsoft
                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                     return JsonSerializer.Deserialize<List<int>>(content, options) ?? new List<int>();
                 }
+                System.Diagnostics.Debug.WriteLine($"[TeleCore API] GetSims Error: {response.StatusCode}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error fetching sims: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[TeleCore API] Error: {ex.Message}");
             }
             return new List<int>();
         }
 
-
-
-        // داخل كلاس ApiService.cs ضيف الدالة دي:
         public async Task<bool> SyncSingleTransactionAsync(Models.TransactionRecord tx)
         {
             try
             {
                 string url = $"{BaseUrl}/transactions/sync";
-
-                // تحويل الريكورد لـ JSON
                 var json = JsonSerializer.Serialize(tx);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.PostAsync(url, content);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[TeleCore] SyncSingle Ex: {ex.Message}");
+                return false;
+            }
+        }
+
+        // 1. كلاسات الرسائل المحدثة
+        public class DeviceSyncRequest
+        {
+            public string DeviceUniqueId { get; set; } = string.Empty;
+            public string DeviceModel { get; set; } = string.Empty;
+            public string PublicKey { get; set; } = string.Empty; // 👈 تم الإضافة لحل مشكلة N/A
+        }
+
+        public class DeviceSyncResponse
+        {
+            public bool Success { get; set; }
+            public bool IsAuthorized { get; set; }
+            public string Message { get; set; } = string.Empty;
+            public Dictionary<int, string> AssignedSims { get; set; } = new Dictionary<int, string>();
+        }
+
+        // 2. دالة "النبض التلقائي" المحدثة
+        public async Task<DeviceSyncResponse> SyncDeviceWithRadarAsync()
+        {
+            try
+            {
+                // 🛡️ توليد وحفظ مفتاح فريد للجهاز إذا لم يكن موجوداً
+                string myKey = Microsoft.Maui.Storage.Preferences.Default.Get("DevicePublicKey", "");
+                if (string.IsNullOrEmpty(myKey))
+                {
+                    myKey = "TC-" + Guid.NewGuid().ToString().Substring(0, 8).ToUpper();
+                    Microsoft.Maui.Storage.Preferences.Default.Set("DevicePublicKey", myKey);
+                }
+
+                var request = new DeviceSyncRequest
+                {
+                    DeviceUniqueId = DeviceInfo.Current.Name,
+                    DeviceModel = $"{DeviceInfo.Current.Manufacturer} {DeviceInfo.Current.Model}",
+                    PublicKey = myKey // 👈 إرسال المفتاح للسيرفر
+                };
+
+                string url = $"{BaseUrl}/Device/Sync";
+                var json = JsonSerializer.Serialize(request);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 var response = await _httpClient.PostAsync(url, content);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[TeleCore] ✅ تمت مزامنة العملية {tx.TransactionId} مع السيرفر.");
-                    return true;
+                    var responseString = await response.Content.ReadAsStringAsync();
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    return JsonSerializer.Deserialize<DeviceSyncResponse>(responseString, options);
                 }
 
-                return false;
+                System.Diagnostics.Debug.WriteLine($"[Radar Sync] Server responded with: {response.StatusCode}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[TeleCore] ❌ فشل المزامنة: {ex.Message}");
-                return false;
+                System.Diagnostics.Debug.WriteLine($"[Radar Sync] Critical Exception: {ex.Message}");
             }
+
+            return new DeviceSyncResponse { Success = false, Message = "فشل الاتصال بالرادار" };
         }
     }
 }

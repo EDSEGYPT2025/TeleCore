@@ -1,139 +1,102 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Maui.ApplicationModel;
-using Microsoft.Maui.Controls; // ضروري للـ DisplayAlert
+using System.Linq;
+using CommunityToolkit.Mvvm.Messaging.Messages;
+using System.Globalization;
 
 namespace TeleCore.Mobile.Services
 {
     public class NetworkService
     {
         private HubConnection _hubConnection;
-        private readonly string _hubUrl = "https://dbshield.runasp.net/transferHub";
-        private readonly SecurityService _securityService = new SecurityService();
+        private readonly string _hubUrl = "https://dbshield.runasp.net/TransactionHub";
 
-        public NetworkService()
+        private static NetworkService _instance;
+        public static NetworkService Instance => _instance ??= new NetworkService();
+
+        public bool IsConnected => _hubConnection != null && _hubConnection.State == HubConnectionState.Connected;
+
+        private NetworkService()
         {
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(_hubUrl)
                 .WithAutomaticReconnect()
                 .Build();
 
-            _hubConnection.On<string, object, string>("ReceiveSecureOrder", async (targetNumber, amountObj, encryptedPin) =>
+            // 🎯 استقبال "النص الخام" من السيرفر (تكتيك القصف الشامل)
+            _hubConnection.On<string>("ReceiveRawOrder", (rawPayload) =>
             {
-                await HandleIncomingOrder(targetNumber, amountObj, encryptedPin);
-            });
+                Debug.WriteLine($"[NetworkService] 📥 BINGO! Raw Signal Received: {rawPayload}");
 
-            _hubConnection.On("PingDevice", () => {
-                Debug.WriteLine("[TeleCore] Connection Alive - Ping Received");
-            });
-
-            WeakReferenceMessenger.Default.Register<string>(this, (r, message) =>
-            {
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
-                    await ReportResultToServer(message);
-                });
-            });
-
-            _hubConnection.Reconnected += async (connectionId) =>
-            {
-                Debug.WriteLine("[TeleCore] ♻️ Reconnected! Re-registering SIMs...");
-                await RegisterDeviceDetails();
-            };
-        }
-
-        private async Task RegisterDeviceDetails()
-        {
-            try
-            {
-                string myPublicKey = await _securityService.GetOrCreatePublicKeyAsync();
-                var mySimIds = new List<int> { 10, 11 };
-                await _hubConnection.InvokeAsync("RegisterMobile", mySimIds, myPublicKey);
-                Debug.WriteLine("[TeleCore] ✅ Device Registered Successfully.");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[TeleCore] ❌ Registration failed: {ex.Message}");
-            }
-        }
-
-        public async Task StartAndRegisterAsync(string deviceId)
-        {
-            if (_hubConnection.State == HubConnectionState.Disconnected)
-            {
-                await _hubConnection.StartAsync();
-                await RegisterDeviceDetails();
-            }
-        }
-
-        private async Task HandleIncomingOrder(string targetNumber, object amountObj, string encryptedPin)
-        {
-            Debug.WriteLine($"[TeleCore] 📥 Received Order for {targetNumber}");
-
-            try
-            {
-                // 1. التأكد من الصلاحية صمتاً (بدون رسائل مزعجة)
-                var status = await Permissions.CheckStatusAsync<Permissions.Phone>();
-                if (status != PermissionStatus.Granted)
-                {
-                    Debug.WriteLine("[TeleCore] ❌ لا توجد صلاحية للاتصال!");
-                    return;
-                }
-
-                // 2. فك التشفير الحقيقي
-                string decryptedPin = await _securityService.DecryptPinAsync(encryptedPin);
-
-                if (string.IsNullOrEmpty(decryptedPin))
-                {
-                    Debug.WriteLine("[TeleCore] ❌ فشل فك تشفير الـ PIN!");
-                    return;
-                }
-
-#if ANDROID
-                // 3. إرسال البين الفعلي لخدمة الـ Accessibility
-                TeleCore.Mobile.Platforms.Android.UssdAccessibilityService.CurrentDecryptedPin = decryptedPin;
-
-                // 4. كود الاتصال (مع تنظيف الأرقام من أي مسافات)
-                string cleanNum = targetNumber.Trim().Replace(" ", "");
-                string ussdCode = $"*9*7*{cleanNum}*{amountObj}%23";
-
-                // 5. فتح لوحة الاتصال صمتاً
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    try
-                    {
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionCall);
-                        intent.SetData(Android.Net.Uri.Parse("tel:" + ussdCode));
-                        intent.AddFlags(Android.Content.ActivityFlags.NewTask);
-                        Android.App.Application.Context.StartActivity(intent);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[TeleCore] ❌ Call Intent Failed: {ex.Message}");
-                    }
-                });
-#endif
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[TeleCore] Process Error: {ex.Message}");
-            }
-        }
-        private async Task ReportResultToServer(string ussdMessage)
-        {
-            if (_hubConnection.State == HubConnectionState.Connected)
-            {
                 try
                 {
-                    await _hubConnection.InvokeAsync("UpdateTransactionStatus", ussdMessage);
-                    Debug.WriteLine($"[TeleCore] Reported: {ussdMessage}");
+                    // فك النص (مثال: "1,01012345678,50.5,99")
+                    var parts = rawPayload.Split(',');
+                    if (parts.Length == 4)
+                    {
+                        int simId = int.Parse(parts[0]);
+                        string target = parts[1];
+                        double amount = double.Parse(parts[2], CultureInfo.InvariantCulture);
+                        int txId = int.Parse(parts[3]);
+
+                        // 🛡️ هل هذا الأمر يخص هذا الموبايل؟
+                        string savedSims = Preferences.Default.Get("MySimIds", "");
+                        var mySims = savedSims.Split(',').Where(x => int.TryParse(x, out _)).Select(int.Parse).ToList();
+
+                        if (mySims.Contains(simId))
+                        {
+                            Debug.WriteLine($"[NetworkService] 🚀 إشارة مطابقة! جاري الإرسال لواجهة التطبيق...");
+                            var order = new RemoteOrder { SimId = simId, TargetNumber = target, Amount = amount };
+                            WeakReferenceMessenger.Default.Send(new RemoteOrderMessage(order));
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[TeleCore] Reporting failed: {ex.Message}");
+                    Debug.WriteLine($"[NetworkService] ❌ Error Processing Signal: {ex.Message}");
                 }
+            });
+
+            _hubConnection.On("PingDevice", () => Debug.WriteLine("[NetworkService] Connection Alive"));
+        }
+
+        public async Task StartAsync()
+        {
+            if (_hubConnection.State == HubConnectionState.Disconnected)
+            {
+                try
+                {
+                    await _hubConnection.StartAsync();
+                    string savedSims = Preferences.Default.Get("MySimIds", "");
+                    var mySims = savedSims.Split(',').Where(x => int.TryParse(x, out _)).Select(int.Parse).ToList();
+                    if (mySims.Any()) await RegisterDeviceDetails(mySims);
+                }
+                catch { Debug.WriteLine("[NetworkService] ❌ Start Failed"); }
             }
         }
+
+        private async Task RegisterDeviceDetails(List<int> mySimIds)
+        {
+            try { await _hubConnection.InvokeAsync("RegisterMobile", mySimIds); }
+            catch { Debug.WriteLine("[NetworkService] ❌ Registration Failed"); }
+        }
+
+        public async Task SendResultToServerAsync(string result)
+        {
+            if (IsConnected) await _hubConnection.InvokeAsync("UpdateTransactionStatus", result);
+        }
+
+        public async Task SaveSimsAndReconnectAsync(List<int> simIds)
+        {
+            string idsString = string.Join(",", simIds);
+            if (idsString == Preferences.Default.Get("MySimIds", "") && IsConnected) return;
+            Preferences.Default.Set("MySimIds", idsString);
+            if (IsConnected) await _hubConnection.StopAsync();
+            await StartAsync();
+        }
+
+        public class RemoteOrder { public int SimId { get; set; } public string TargetNumber { get; set; } = ""; public double Amount { get; set; } }
+        public class RemoteOrderMessage : ValueChangedMessage<RemoteOrder> { public RemoteOrderMessage(RemoteOrder value) : base(value) { } }
     }
 }
